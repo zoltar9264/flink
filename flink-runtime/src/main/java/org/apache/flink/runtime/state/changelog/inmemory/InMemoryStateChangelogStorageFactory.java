@@ -24,6 +24,8 @@ import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
 import org.apache.flink.runtime.state.changelog.StateChangelogStorageFactory;
 import org.apache.flink.runtime.state.changelog.StateChangelogStorageView;
 
+import java.util.concurrent.ExecutorService;
+
 /** An {@link StateChangelogStorageFactory} for creating {@link InMemoryStateChangelogStorage}. */
 public class InMemoryStateChangelogStorageFactory implements StateChangelogStorageFactory {
 
@@ -41,7 +43,8 @@ public class InMemoryStateChangelogStorageFactory implements StateChangelogStora
     }
 
     @Override
-    public StateChangelogStorageView<?> createStorageView() {
+    public StateChangelogStorageView<?> createStorageView(
+            ExecutorService downloadExecutor, Configuration configuration) {
         return new InMemoryStateChangelogStorage();
     }
 }

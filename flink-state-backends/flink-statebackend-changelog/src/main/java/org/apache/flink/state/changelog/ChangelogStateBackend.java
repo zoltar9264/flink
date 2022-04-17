@@ -87,9 +87,14 @@ public class ChangelogStateBackend extends AbstractChangelogStateBackend
         String subtaskName = env.getTaskInfo().getTaskNameWithSubtasks();
         ExecutionConfig executionConfig = env.getExecutionConfig();
 
+        env.getAsyncOperationsThreadPool();
+
         ChangelogStateFactory changelogStateFactory = new ChangelogStateFactory();
         CheckpointableKeyedStateBackend<K> keyedStateBackend =
                 ChangelogBackendRestoreOperation.restore(
+                        env.getJobID(),
+                        env.getAsyncOperationsThreadPool(),
+                        env.getTaskManagerInfo().getConfiguration(),
                         env.getUserCodeClassLoader().asClassLoader(),
                         stateBackendHandles,
                         baseBackendBuilder,

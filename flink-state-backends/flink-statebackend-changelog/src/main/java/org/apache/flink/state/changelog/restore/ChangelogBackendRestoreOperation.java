@@ -18,6 +18,8 @@
 package org.apache.flink.state.changelog.restore;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyedStateHandle;
@@ -36,6 +38,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 /**
@@ -60,6 +63,9 @@ public class ChangelogBackendRestoreOperation {
                     Exception> {}
 
     public static <K> CheckpointableKeyedStateBackend<K> restore(
+            JobID jobID,
+            ExecutorService asyncExecutor,
+            Configuration configuration,
             ClassLoader classLoader,
             Collection<ChangelogStateBackendHandle> stateHandles,
             BaseBackendBuilder<K> baseBackendBuilder,
@@ -72,7 +78,13 @@ public class ChangelogBackendRestoreOperation {
 
         for (ChangelogStateBackendHandle handle : stateHandles) {
             if (handle != null) { // null is empty state (no change)
-                readBackendHandle(changelogRestoreTarget, handle, classLoader);
+                readBackendHandle(
+                        jobID,
+                        asyncExecutor,
+                        configuration,
+                        changelogRestoreTarget,
+                        handle,
+                        classLoader);
             }
         }
         return changelogRestoreTarget.getRestoredKeyedStateBackend();
@@ -80,6 +92,9 @@ public class ChangelogBackendRestoreOperation {
 
     @SuppressWarnings("unchecked")
     private static <T extends ChangelogStateHandle> void readBackendHandle(
+            JobID jobID,
+            ExecutorService asyncExecutor,
+            Configuration configuration,
             ChangelogRestoreTarget<?> changelogRestoreTarget,
             ChangelogStateBackendHandle backendHandle,
             ClassLoader classLoader)
@@ -89,7 +104,8 @@ public class ChangelogBackendRestoreOperation {
                 backendHandle.getNonMaterializedStateHandles()) {
             StateChangelogHandleReader<T> changelogHandleReader =
                     (StateChangelogHandleReader<T>)
-                            StateChangelogStorageLoader.loadFromStateHandle(changelogHandle)
+                            StateChangelogStorageLoader.loadFromStateHandle(
+                                            jobID, asyncExecutor, configuration, changelogHandle)
                                     .createReader();
             try (CloseableIterator<StateChange> changes =
                     changelogHandleReader.getChanges((T) changelogHandle)) {

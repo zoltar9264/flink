@@ -67,6 +67,9 @@ public class DeactivatedChangelogStateBackend extends AbstractChangelogStateBack
         stateBackendHandles = reboundCheckpoint(stateBackendHandles);
         ChangelogStateFactory changelogStateFactory = new ChangelogStateFactory();
         return ChangelogBackendRestoreOperation.restore(
+                env.getJobID(),
+                env.getAsyncOperationsThreadPool(),
+                env.getTaskManagerInfo().getConfiguration(),
                 env.getUserCodeClassLoader().asClassLoader(),
                 stateBackendHandles,
                 baseBackendBuilder,

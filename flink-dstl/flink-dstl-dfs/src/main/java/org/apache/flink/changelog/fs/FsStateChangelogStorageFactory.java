@@ -28,6 +28,7 @@ import org.apache.flink.runtime.state.changelog.StateChangelogStorageView;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.ExecutorService;
 
 import static org.apache.flink.changelog.fs.FsStateChangelogOptions.BASE_PATH;
 import static org.apache.flink.changelog.fs.FsStateChangelogOptions.RETRY_MAX_ATTEMPTS;
@@ -53,8 +54,9 @@ public class FsStateChangelogStorageFactory implements StateChangelogStorageFact
     }
 
     @Override
-    public StateChangelogStorageView<?> createStorageView() {
-        return new FsStateChangelogStorageForRecovery();
+    public StateChangelogStorageView<?> createStorageView(
+            ExecutorService executorService, Configuration configuration) {
+        return new FsStateChangelogStorageForRecovery(executorService, configuration);
     }
 
     public static void configure(

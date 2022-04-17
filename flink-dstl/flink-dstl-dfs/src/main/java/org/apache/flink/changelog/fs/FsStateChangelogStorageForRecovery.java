@@ -19,6 +19,7 @@
 package org.apache.flink.changelog.fs;
 
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.changelog.ChangelogStateHandleStreamImpl;
 import org.apache.flink.runtime.state.changelog.StateChangelogHandleReader;
 import org.apache.flink.runtime.state.changelog.StateChangelogHandleStreamHandleReader;
@@ -27,14 +28,31 @@ import org.apache.flink.runtime.state.changelog.StateChangelogStorageView;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.concurrent.ExecutorService;
+
 /** Filesystem-based implementation of {@link StateChangelogStorage} just for recovery. */
 @Experimental
 @ThreadSafe
 public class FsStateChangelogStorageForRecovery
         implements StateChangelogStorageView<ChangelogStateHandleStreamImpl> {
 
+    private final StateChangeIteratorWithCache stateChangeIteratorWithCache;
+
+    public FsStateChangelogStorageForRecovery() {
+        this.stateChangeIteratorWithCache = null;
+    }
+
+    public FsStateChangelogStorageForRecovery(
+            ExecutorService downloadExecutor, Configuration configuration) {
+        this.stateChangeIteratorWithCache =
+                new StateChangeIteratorWithCache(downloadExecutor, configuration);
+    }
+
     @Override
     public StateChangelogHandleReader<ChangelogStateHandleStreamImpl> createReader() {
-        return new StateChangelogHandleStreamHandleReader(new StateChangeFormat());
+        return new StateChangelogHandleStreamHandleReader(
+                stateChangeIteratorWithCache != null
+                        ? stateChangeIteratorWithCache
+                        : new StateChangeIteratorImpl());
     }
 }

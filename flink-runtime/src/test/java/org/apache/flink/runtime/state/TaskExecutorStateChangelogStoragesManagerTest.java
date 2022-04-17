@@ -37,6 +37,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Collections.singletonList;
 import static org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups.createUnregisteredTaskManagerJobMetricGroup;
@@ -212,7 +213,8 @@ public class TaskExecutorStateChangelogStoragesManagerTest {
         }
 
         @Override
-        public StateChangelogStorageView<?> createStorageView() throws IOException {
+        public StateChangelogStorageView<?> createStorageView(
+                ExecutorService asyncExecutor, Configuration configuration) throws IOException {
             return new TestStateChangelogStorage();
         }
     }

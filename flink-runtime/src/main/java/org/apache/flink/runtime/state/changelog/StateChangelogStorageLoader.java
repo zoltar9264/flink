@@ -30,11 +30,14 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.ServiceLoader;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 
 import static org.apache.flink.shaded.guava30.com.google.common.collect.Iterators.concat;
 
@@ -50,6 +53,12 @@ public class StateChangelogStorageLoader {
      */
     private static final HashMap<String, StateChangelogStorageFactory>
             STATE_CHANGELOG_STORAGE_FACTORIES = new HashMap<>();
+
+    private static final Object lock = new Object();
+
+    @GuardedBy("lock")
+    private static final ConcurrentHashMap<JobID, StateChangelogStorageView<?>>
+            changelogStorageViewsByJobId = new ConcurrentHashMap<>();
 
     static {
         // Guarantee to trigger once.
@@ -106,21 +115,35 @@ public class StateChangelogStorageLoader {
 
     @Nonnull
     public static StateChangelogStorageView<?> loadFromStateHandle(
-            ChangelogStateHandle changelogStateHandle) throws IOException {
+            JobID jobID,
+            ExecutorService asyncExecutor,
+            Configuration configuration,
+            ChangelogStateHandle changelogStateHandle)
+            throws IOException {
         StateChangelogStorageFactory factory =
                 STATE_CHANGELOG_STORAGE_FACTORIES.get(changelogStateHandle.getStorageIdentifier());
+
         if (factory == null) {
             throw new FlinkRuntimeException(
                     String.format(
                             "Cannot find a factory for changelog storage with name '%s' to restore from '%s'.",
                             changelogStateHandle.getStorageIdentifier(),
                             changelogStateHandle.getClass().getSimpleName()));
-        } else {
-            LOG.info(
-                    "Creating a changelog storage with name '{}' to restore from '{}'.",
-                    changelogStateHandle.getStorageIdentifier(),
-                    changelogStateHandle.getClass().getSimpleName());
-            return factory.createStorageView();
         }
+
+        if (!changelogStorageViewsByJobId.containsKey(jobID)) {
+            synchronized (lock) {
+                if (!changelogStorageViewsByJobId.containsKey(jobID)) {
+                    LOG.info(
+                            "Creating a changelog storage with name '{}' to restore from '{}'.",
+                            changelogStateHandle.getStorageIdentifier(),
+                            changelogStateHandle.getClass().getSimpleName());
+                    changelogStorageViewsByJobId.put(
+                            jobID, factory.createStorageView(asyncExecutor, configuration));
+                }
+            }
+        }
+
+        return changelogStorageViewsByJobId.get(jobID);
     }
 }

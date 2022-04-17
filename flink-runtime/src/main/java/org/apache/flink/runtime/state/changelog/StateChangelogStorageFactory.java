@@ -24,6 +24,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.metrics.groups.TaskManagerJobMetricGroup;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * A factory for {@link StateChangelogStorage}. Please use {@link StateChangelogStorageLoader} to
@@ -40,5 +41,6 @@ public interface StateChangelogStorageFactory {
             throws IOException;
 
     /** Create the storage for recovery. */
-    StateChangelogStorageView<?> createStorageView() throws IOException;
+    StateChangelogStorageView<?> createStorageView(
+            ExecutorService asyncExecutor, Configuration configuration) throws IOException;
 }

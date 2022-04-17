@@ -36,6 +36,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.singletonList;
@@ -125,7 +126,8 @@ public class StateChangelogStorageLoaderTest {
         }
 
         @Override
-        public StateChangelogStorageView<?> createStorageView() throws IOException {
+        public StateChangelogStorageView<?> createStorageView(
+                ExecutorService asyncExecutor, Configuration configuration) throws IOException {
             return new TestStateChangelogStorage();
         }
     }
