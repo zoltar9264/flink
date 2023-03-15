@@ -48,10 +48,10 @@ public class FsStateChangelogWriterSqnTest {
                 of(StateChangelogWriter::nextSequenceNumber, "nextSequenceNumber")
                         .withAppendCall(true)
                         .expectIncrement(true),
-                of(FsStateChangelogWriterSqnTest::persistAll, "persist")
+                of(writer -> persistAll(writer, 1), "persist")
                         .withAppendCall(false)
                         .expectIncrement(false),
-                of(FsStateChangelogWriterSqnTest::persistAll, "persist")
+                of(writer -> persistAll(writer, 2), "persist")
                         .withAppendCall(true)
                         .expectIncrement(true),
                 of(FsStateChangelogWriterSqnTest::append, "append")
@@ -152,7 +152,8 @@ public class FsStateChangelogWriterSqnTest {
         writer.truncate(writer.initialSequenceNumber());
     }
 
-    private static void persistAll(FsStateChangelogWriter writer) throws IOException {
-        writer.persist(writer.initialSequenceNumber());
+    private static void persistAll(FsStateChangelogWriter writer, long checkpointId)
+            throws IOException {
+        writer.persist(writer.initialSequenceNumber(), checkpointId);
     }
 }

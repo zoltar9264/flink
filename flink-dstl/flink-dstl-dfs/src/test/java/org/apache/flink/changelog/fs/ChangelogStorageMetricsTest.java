@@ -75,10 +75,11 @@ public class ChangelogStorageMetricsTest {
                         TestLocalRecoveryConfig.disabled())) {
             FsStateChangelogWriter writer = createWriter(storage);
             int numUploads = 5;
+            long checkpointId = 1;
             for (int i = 0; i < numUploads; i++) {
                 SequenceNumber from = writer.nextSequenceNumber();
                 writer.append(0, new byte[] {0, 1, 2, 3});
-                writer.persist(from).get();
+                writer.persist(from, checkpointId++).get();
             }
             assertThat(metrics.getUploadsCounter().getCount()).isEqualTo(numUploads);
             assertThat(metrics.getUploadLatenciesNanos().getStatistics().getMin()).isGreaterThan(0);
@@ -101,17 +102,19 @@ public class ChangelogStorageMetricsTest {
                         TestLocalRecoveryConfig.disabled())) {
             FsStateChangelogWriter writer = createWriter(storage);
 
+            long checkpointId = 1;
+
             // upload single byte to infer header size
             SequenceNumber from = writer.nextSequenceNumber();
             writer.append(0, new byte[] {0});
-            writer.persist(from).get();
+            writer.persist(from, checkpointId++).get();
             long headerSize = metrics.getUploadSizes().getStatistics().getMin() - 1;
 
             byte[] upload = new byte[33];
             for (int i = 0; i < 5; i++) {
                 from = writer.nextSequenceNumber();
                 writer.append(0, upload);
-                writer.persist(from).get();
+                writer.persist(from, checkpointId++).get();
             }
             long expected = upload.length + headerSize;
             assertThat(metrics.getUploadSizes().getStatistics().getMax()).isEqualTo(expected);
@@ -136,11 +139,12 @@ public class ChangelogStorageMetricsTest {
             FsStateChangelogWriter writer = createWriter(storage);
 
             int numUploads = 5;
+            long checkpointId = 1;
             for (int i = 0; i < numUploads; i++) {
                 SequenceNumber from = writer.nextSequenceNumber();
                 writer.append(0, new byte[] {0, 1, 2, 3});
                 try {
-                    writer.persist(from).get();
+                    writer.persist(from, checkpointId++).get();
                 } catch (IOException e) {
                     // ignore
                 }
@@ -195,13 +199,14 @@ public class ChangelogStorageMetricsTest {
         }
 
         try {
+            long checkpointId = 1;
             for (int upload = 0; upload < numUploads; upload++) {
                 for (int writer = 0; writer < numWriters; writer++) {
                     // with all thresholds on MAX and manually triggered executor, this shouldn't
                     // cause actual uploads
                     SequenceNumber from = writers[writer].nextSequenceNumber();
                     writers[writer].append(0, new byte[] {0, 1, 2, 3});
-                    writers[writer].persist(from);
+                    writers[writer].persist(from, checkpointId++);
                 }
                 // now the uploads should be grouped and executed at once
                 scheduler.triggerScheduledTasks();
@@ -245,10 +250,11 @@ public class ChangelogStorageMetricsTest {
         FsStateChangelogWriter writer = createWriter(storage);
 
         try {
+            long checkpointId = 1;
             for (int upload = 0; upload < numUploads; upload++) {
                 SequenceNumber from = writer.nextSequenceNumber();
                 writer.append(0, new byte[] {0, 1, 2, 3});
-                writer.persist(from).get();
+                writer.persist(from, checkpointId++).get();
             }
         } finally {
             storage.close();
@@ -290,10 +296,11 @@ public class ChangelogStorageMetricsTest {
         FsStateChangelogWriter writer = createWriter(storage);
 
         try {
+            long checkpointId = 1;
             for (int upload = 0; upload < numUploads; upload++) {
                 SequenceNumber from = writer.nextSequenceNumber();
                 writer.append(0, new byte[] {0, 1, 2, 3});
-                writer.persist(from).get();
+                writer.persist(from, checkpointId++).get();
             }
         } finally {
             storage.close();
@@ -355,11 +362,12 @@ public class ChangelogStorageMetricsTest {
                         TaskChangelogRegistry.NO_OP,
                         TestLocalRecoveryConfig.disabled())) {
             FsStateChangelogWriter writer = createWriter(storage);
+            long checkpointId = 1;
             int numUploads = 11;
             for (int i = 0; i < numUploads; i++) {
                 SequenceNumber from = writer.nextSequenceNumber();
                 writer.append(0, new byte[] {0});
-                writer.persist(from);
+                writer.persist(from, checkpointId++);
             }
             assertThat((int) queueSizeGauge.get().getValue()).isEqualTo(numUploads);
             scheduler.triggerScheduledTasks();

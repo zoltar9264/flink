@@ -68,7 +68,7 @@ class FsStateChangelogWriterTest {
                     SequenceNumber sqn = append(writer, bytes);
                     assertSubmittedOnly(uploader, bytes);
                     uploader.reset();
-                    writer.persist(sqn);
+                    writer.persist(sqn, 1);
                     assertNoUpload(uploader, "changes should have been pre-uploaded");
                 });
     }
@@ -79,7 +79,7 @@ class FsStateChangelogWriterTest {
                 (writer, uploader) -> {
                     byte[] bytes = getBytes();
                     CompletableFuture<SnapshotResult<ChangelogStateHandleStreamImpl>> future =
-                            writer.persist(append(writer, bytes));
+                            writer.persist(append(writer, bytes), 1);
                     assertSubmittedOnly(uploader, bytes);
                     uploader.completeUpload();
                     assertThat(
@@ -98,13 +98,14 @@ class FsStateChangelogWriterTest {
     void testPersistAgain() throws Exception {
         withWriter(
                 (writer, uploader) -> {
+                    long checkpointId = 1;
                     byte[] bytes = getBytes();
                     SequenceNumber sqn = append(writer, bytes);
-                    writer.persist(sqn);
+                    writer.persist(sqn, checkpointId++);
                     uploader.completeUpload();
                     uploader.reset();
                     writer.confirm(sqn, writer.nextSequenceNumber(), 1L);
-                    writer.persist(sqn);
+                    writer.persist(sqn, checkpointId++);
                     assertNoUpload(uploader, "confirmed changes shouldn't be re-uploaded");
                 });
     }
@@ -132,11 +133,13 @@ class FsStateChangelogWriterTest {
                                 LocalChangelogRegistry.NO_OP)) {
             SequenceNumber initialSqn = writer.initialSequenceNumber();
 
+            long checkpointId = 1;
+
             writer.append(KEY_GROUP, getBytes(10)); // sqn: 0
 
             // checkpoint 1 trigger
             SequenceNumber checkpoint1sqn = writer.nextSequenceNumber();
-            writer.persist(initialSqn);
+            writer.persist(initialSqn, checkpointId++);
             uploadScheduler.scheduleAll(); // checkpoint 1 completed
             writer.confirm(initialSqn, checkpoint1sqn, 1);
 
@@ -150,7 +153,7 @@ class FsStateChangelogWriterTest {
             // materialization 1 completed
             // checkpoint 2 trigger
             SequenceNumber checkpoint2sqn = writer.nextSequenceNumber();
-            writer.persist(materializationSqn);
+            writer.persist(materializationSqn, checkpointId++);
             uploadScheduler.scheduleAll(); // checkpoint 2 completed
             writer.confirm(materializationSqn, checkpoint2sqn, 2);
 
@@ -164,7 +167,7 @@ class FsStateChangelogWriterTest {
 
             // checkpoint 3 trigger
             SequenceNumber checkpoint3sqn = writer.nextSequenceNumber();
-            writer.persist(materializationSqn);
+            writer.persist(materializationSqn, checkpointId++);
             uploadScheduler.scheduleAll(); // checkpoint 3 completed
             writer.confirm(materializationSqn, checkpoint3sqn, 3);
 
@@ -181,7 +184,7 @@ class FsStateChangelogWriterTest {
             // checkpoint 4 trigger
             SequenceNumber checkpoint4sqn = writer.nextSequenceNumber();
             CompletableFuture<SnapshotResult<ChangelogStateHandleStreamImpl>> future =
-                    writer.persist(materializationSqn);
+                    writer.persist(materializationSqn, checkpointId++);
             uploadScheduler.scheduleAll(); // checkpoint 4 completed
             writer.confirm(materializationSqn, checkpoint4sqn, 4);
 
@@ -218,6 +221,8 @@ class FsStateChangelogWriterTest {
                             TestLocalRecoveryConfig.disabled(),
                             LocalChangelogRegistry.NO_OP);
 
+            long checkpointId = 1;
+
             SequenceNumber initialSqn = writer.initialSequenceNumber();
 
             writer.append(KEY_GROUP, getBytes(10)); // sqn: 0
@@ -225,7 +230,7 @@ class FsStateChangelogWriterTest {
             // checkpoint 1 trigger
             SequenceNumber checkpoint1sqn = writer.nextSequenceNumber();
             CompletableFuture<SnapshotResult<ChangelogStateHandleStreamImpl>> future =
-                    writer.persist(initialSqn);
+                    writer.persist(initialSqn, checkpointId++);
 
             // trigger pre-emptive upload
             writer.append(KEY_GROUP, getBytes(100)); // sqn: 1
@@ -250,11 +255,12 @@ class FsStateChangelogWriterTest {
     void testNoReUploadBeforeCompletion() throws Exception {
         withWriter(
                 (writer, uploader) -> {
+                    long checkpointId = 1;
                     byte[] bytes = getBytes();
                     SequenceNumber sqn = append(writer, bytes);
-                    writer.persist(sqn);
+                    writer.persist(sqn, checkpointId++);
                     uploader.reset();
-                    writer.persist(sqn);
+                    writer.persist(sqn, checkpointId++);
                     assertNoUpload(uploader, "no re-upload should happen");
                 });
     }
@@ -263,12 +269,13 @@ class FsStateChangelogWriterTest {
     void testPersistNewlyAppended() throws Exception {
         withWriter(
                 (writer, uploader) -> {
+                    long checkpointId = 1;
                     SequenceNumber sqn = append(writer, getBytes());
-                    writer.persist(sqn);
+                    writer.persist(sqn, checkpointId++);
                     uploader.reset();
                     byte[] bytes = getBytes();
                     sqn = append(writer, bytes);
-                    writer.persist(sqn);
+                    writer.persist(sqn, checkpointId++);
                     assertSubmittedOnly(uploader, bytes);
                 });
     }
@@ -282,7 +289,7 @@ class FsStateChangelogWriterTest {
                     SequenceNumber sqn = append(writer, bytes);
                     writer.reset(sqn, SequenceNumber.of(Long.MAX_VALUE), Long.MAX_VALUE);
                     uploader.reset();
-                    writer.persist(sqn);
+                    writer.persist(sqn, 1);
                     assertSubmittedOnly(uploader, bytes);
                 });
     }
@@ -298,7 +305,7 @@ class FsStateChangelogWriterTest {
                                             CompletableFuture<
                                                             SnapshotResult<
                                                                     ChangelogStateHandleStreamImpl>>
-                                                    future = writer.persist(sqn);
+                                                    future = writer.persist(sqn, 1);
                                             uploader.failUpload(new RuntimeException("test"));
                                             try {
                                                 future.get();
@@ -315,11 +322,14 @@ class FsStateChangelogWriterTest {
                         () ->
                                 withWriter(
                                         (writer, uploader) -> {
+                                            long checkpointId = 1;
                                             byte[] bytes = getBytes();
                                             SequenceNumber sqn = append(writer, bytes);
-                                            writer.persist(sqn); // future result ignored
+                                            writer.persist(
+                                                    sqn, checkpointId++); // future result ignored
                                             uploader.failUpload(new RuntimeException("test"));
-                                            writer.persist(sqn); // should fail right away
+                                            writer.persist(
+                                                    sqn, checkpointId++); // should fail right away
                                         }))
                 .isInstanceOf(IOException.class);
     }
@@ -328,14 +338,15 @@ class FsStateChangelogWriterTest {
     void testPersistNonFailedChanges() throws Exception {
         withWriter(
                 (writer, uploader) -> {
+                    long checkpointId = 1;
                     byte[] bytes = getBytes();
                     SequenceNumber sqn1 = append(writer, bytes);
-                    writer.persist(sqn1); // future result ignored
+                    writer.persist(sqn1, checkpointId++); // future result ignored
                     uploader.failUpload(new RuntimeException("test"));
                     uploader.reset();
                     SequenceNumber sqn2 = append(writer, bytes);
                     CompletableFuture<SnapshotResult<ChangelogStateHandleStreamImpl>> future =
-                            writer.persist(sqn2);
+                            writer.persist(sqn2, checkpointId++);
                     uploader.completeUpload();
                     future.get();
                 });
@@ -349,7 +360,7 @@ class FsStateChangelogWriterTest {
                                         (writer, uploader) -> {
                                             SequenceNumber sqn = append(writer, getBytes());
                                             writer.truncate(sqn.next());
-                                            writer.persist(sqn);
+                                            writer.persist(sqn, 1);
                                         }))
                 .isInstanceOf(IllegalArgumentException.class);
     }

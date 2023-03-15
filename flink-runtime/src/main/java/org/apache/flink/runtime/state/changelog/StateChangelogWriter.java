@@ -50,8 +50,10 @@ public interface StateChangelogWriter<Handle extends ChangelogStateHandle> exten
      * be called for the corresponding change set. with reset/truncate/confirm methods?
      *
      * @param from inclusive
+     * @param checkpointId the checkpoint that initiates the persist operation
      */
-    CompletableFuture<SnapshotResult<Handle>> persist(SequenceNumber from) throws IOException;
+    CompletableFuture<SnapshotResult<Handle>> persist(SequenceNumber from, long checkpointId)
+            throws IOException;
 
     /**
      * Truncate this state changelog to free up the resources and collect any garbage. That means:

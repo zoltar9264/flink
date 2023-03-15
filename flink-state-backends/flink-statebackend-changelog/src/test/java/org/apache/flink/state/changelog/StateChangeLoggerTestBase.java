@@ -125,7 +125,7 @@ abstract class StateChangeLoggerTestBase<Namespace> {
         }
 
         @Override
-        public CompletableFuture<?> persist(SequenceNumber from) throws IOException {
+        public CompletableFuture<?> persist(SequenceNumber from, long checkpointId) throws IOException {
             throw new UnsupportedOperationException();
         }
 

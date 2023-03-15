@@ -84,17 +84,6 @@ public class LocalChangelogRegistryImpl implements LocalChangelogRegistry {
         }
     }
 
-    public void prune(long checkpointID) {
-        Set<StreamStateHandle> handles =
-                handleToLastUsedCheckpointID.values().stream()
-                        .filter(tuple -> tuple.f1 == checkpointID)
-                        .map(tuple -> tuple.f0)
-                        .collect(Collectors.toSet());
-        for (StreamStateHandle handle : handles) {
-            scheduleAsyncDelete(handle);
-        }
-    }
-
     private void scheduleAsyncDelete(StreamStateHandle streamStateHandle) {
         if (streamStateHandle != null) {
             LOG.trace("Scheduled delete of state handle {}.", streamStateHandle);

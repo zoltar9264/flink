@@ -31,9 +31,6 @@ public interface LocalChangelogRegistry {
 
                 @Override
                 public void discardUpToCheckpoint(long upTo) {}
-
-                @Override
-                public void prune(long checkpointID) {}
             };
 
     /**
@@ -54,11 +51,4 @@ public interface LocalChangelogRegistry {
      * @param upTo lowest CheckpointID which is still valid.
      */
     void discardUpToCheckpoint(long upTo);
-
-    /**
-     * Called upon ChangelogKeyedStateBackend#notifyCheckpointAborted.
-     *
-     * @param checkpointID to abort
-     */
-    void prune(long checkpointID);
 }
