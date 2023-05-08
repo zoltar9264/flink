@@ -138,4 +138,9 @@ public class ChangelogStateBackend extends AbstractChangelogStateBackend
 
         return keyedStateBackend;
     }
+
+    @Override
+    public boolean supportsNoClaimRestoreMode() {
+        return true;
+    }
 }

@@ -122,6 +122,11 @@ public class ChangelogKeyedStateBackend<K>
             new CheckpointOptions(
                     CheckpointType.CHECKPOINT, CheckpointStorageLocationReference.getDefault());
 
+    private static final CheckpointOptions FULL_CHECKPOINT_OPTIONS =
+            new CheckpointOptions(
+                    CheckpointType.FULL_CHECKPOINT,
+                    CheckpointStorageLocationReference.getDefault());
+
     /** delegated keyedStateBackend. */
     private final AbstractKeyedStateBackend<K> keyedStateBackend;
 
@@ -148,6 +153,9 @@ public class ChangelogKeyedStateBackend<K>
     private long lastCheckpointId = -1L;
 
     private long materializedId = 0;
+
+    // make sure completed a full materialization from the specified id
+    private long nextFullMaterializationStartId = Long.MAX_VALUE;
 
     /** last accessed partitioned state. */
     @SuppressWarnings("rawtypes")
@@ -391,6 +399,15 @@ public class ChangelogKeyedStateBackend<K>
                 lastUploadedFrom,
                 lastUploadedTo,
                 changelogSnapshotState.getMaterializationID());
+
+        if (checkpointOptions.getCheckpointType().equals(CheckpointType.FULL_CHECKPOINT)
+                && nextFullMaterializationStartId > materializedId) {
+            this.nextFullMaterializationStartId = materializedId;
+            LOG.info(
+                    "set nextFullMaterializationStartId to {}, checkpointId:{}.",
+                    nextFullMaterializationStartId,
+                    checkpointId);
+        }
 
         ChangelogSnapshotState changelogStateBackendStateCopy = changelogSnapshotState;
 
@@ -774,6 +791,17 @@ public class ChangelogKeyedStateBackend<K>
             // checkpoint ID. A faked materialized Id is provided here.
             long materializationID = materializedId++;
 
+            CheckpointOptions checkpointOptions;
+            if (materializationID >= nextFullMaterializationStartId) {
+                checkpointOptions = FULL_CHECKPOINT_OPTIONS;
+                LOG.info(
+                        "trigger a full materialization with id:{}, nextFullMaterializationStartId:{}",
+                        materializationID,
+                        nextFullMaterializationStartId);
+            } else {
+                checkpointOptions = CHECKPOINT_OPTIONS;
+            }
+
             MaterializationRunnable materializationRunnable =
                     new MaterializationRunnable(
                             keyedStateBackend.snapshot(
@@ -781,7 +809,7 @@ public class ChangelogKeyedStateBackend<K>
                                     System.currentTimeMillis(),
                                     // TODO: implement its own streamFactory.
                                     streamFactory,
-                                    CHECKPOINT_OPTIONS),
+                                    checkpointOptions),
                             materializationID,
                             upTo);
 
@@ -828,6 +856,13 @@ public class ChangelogKeyedStateBackend<K>
                                 Collections.emptyList(),
                                 upTo,
                                 materializationID);
+
+        if (materializationID >= nextFullMaterializationStartId) {
+            LOG.info(
+                    "materialization:{} completed, reset nextFullMaterializationStartId.",
+                    materializationID);
+            nextFullMaterializationStartId = Long.MAX_VALUE;
+        }
 
         changelogTruncateHelper.materialized(upTo);
     }

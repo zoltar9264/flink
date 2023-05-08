@@ -37,7 +37,7 @@ public interface SharedStateRegistry extends AutoCloseable {
     SharedStateRegistryFactory DEFAULT_FACTORY =
             (deleteExecutor, checkpoints, restoreMode) -> {
                 SharedStateRegistry sharedStateRegistry =
-                        new SharedStateRegistryImpl(deleteExecutor);
+                        new SharedStateRegistryImpl2(deleteExecutor);
                 for (CompletedCheckpoint checkpoint : checkpoints) {
                     checkpoint.registerSharedStatesAfterRestored(sharedStateRegistry, restoreMode);
                 }

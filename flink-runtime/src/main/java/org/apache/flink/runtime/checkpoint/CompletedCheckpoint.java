@@ -249,9 +249,9 @@ public class CompletedCheckpoint implements Serializable, Checkpoint {
     public void registerSharedStatesAfterRestored(
             SharedStateRegistry sharedStateRegistry, RestoreMode restoreMode) {
         // in claim mode we should not register any shared handles
-        if (!props.isUnclaimed()) {
-            sharedStateRegistry.registerAllAfterRestored(this, restoreMode);
-        }
+        //        if (!props.isUnclaimed()) {
+        sharedStateRegistry.registerAllAfterRestored(this, restoreMode);
+        //        }
     }
 
     // ------------------------------------------------------------------------
