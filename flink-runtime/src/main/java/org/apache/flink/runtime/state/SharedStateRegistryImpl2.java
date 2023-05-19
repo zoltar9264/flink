@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -79,10 +79,10 @@ public class SharedStateRegistryImpl2 implements SharedStateRegistry {
 
     @Override
     public StreamStateHandle registerReference(
-            SharedStateRegistryKey registrationKey,
-            StreamStateHandle newHandle,
-            long checkpointID,
-            boolean preventDiscardingCreatedCheckpoint) {
+            final SharedStateRegistryKey registrationKey,
+            final StreamStateHandle newHandle,
+            final long checkpointID,
+            final boolean preventDiscardingCreatedCheckpoint) {
 
         checkNotNull(newHandle, "State handle should not be null.");
 
@@ -226,14 +226,9 @@ public class SharedStateRegistryImpl2 implements SharedStateRegistry {
 
     @Override
     public void registerAllAfterRestored(CompletedCheckpoint checkpoint, RestoreMode mode) {
-        long checkpointID = checkpoint.getCheckpointID();
-        LOG.info(
-                "register all after restored, restored checkpoint: {}, mode:{}",
-                checkpointID,
-                mode);
-        registerAll(checkpoint.getOperatorStates().values(), checkpointID);
+        registerAll(checkpoint.getOperatorStates().values(), checkpoint.getCheckpointID());
         restoredCheckpointSharingStrategies.put(
-                checkpointID,
+                checkpoint.getCheckpointID(),
                 checkpoint
                         .getRestoredProperties()
                         .map(props -> props.getCheckpointType().getSharingFilesStrategy()));
@@ -243,7 +238,8 @@ public class SharedStateRegistryImpl2 implements SharedStateRegistry {
         // In CLAIM restore mode, the shared state of the initial checkpoints must be
         // discarded as soon as it becomes unused - so highestRetainCheckpointID is not updated.
         if (mode != RestoreMode.CLAIM) {
-            highestNotClaimedCheckpointID = Math.max(highestNotClaimedCheckpointID, checkpointID);
+            highestNotClaimedCheckpointID =
+                    Math.max(highestNotClaimedCheckpointID, checkpoint.getCheckpointID());
         }
     }
 
@@ -262,7 +258,7 @@ public class SharedStateRegistryImpl2 implements SharedStateRegistry {
     private void scheduleAsyncDelete(StreamStateHandle streamStateHandle) {
         // We do the small optimization to not issue discards for placeholders, which are NOPs.
         if (streamStateHandle != null && !isPlaceholder(streamStateHandle)) {
-            LOG.trace("Scheduled delete of state handle {}.", streamStateHandle);
+            LOG.debug("Scheduled delete of state handle {}.", streamStateHandle);
             AsyncDisposalRunnable asyncDisposalRunnable =
                     new AsyncDisposalRunnable(streamStateHandle);
             try {
@@ -293,7 +289,7 @@ public class SharedStateRegistryImpl2 implements SharedStateRegistry {
         }
     }
 
-    /** Encapsulates the operation delete state handles asynchronously. */
+    /** Encapsulates the operation the delete state handles asynchronously. */
     private static final class AsyncDisposalRunnable implements Runnable {
 
         private final StateObject toDispose;
