@@ -111,31 +111,44 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
                     entry = entry.next;
                 }
 
-                if (entry.stateHandle.equals(newHandle)) {
-                    LOG.debug(
-                            "advance last using checkpoint to {}, key:{}, stateHandle:{}",
+                if (entry.stateHandle == newHandle) {
+                    // might be a bug but state backend is not required to use a place-holder
+                    LOG.info(
+                            "Duplicated registration under key {} with the same object: {}",
                             registrationKey,
-                            entry,
-                            checkpointID);
-
-                    entry.advanceLastUsingCheckpointID(checkpointID);
+                            newHandle);
+                } else if (entry.stateHandle.equals(newHandle)) {
+                    LOG.trace(
+                            "Duplicated registration under key {} and stateHandle {}",
+                            registrationKey,
+                            entry.stateHandle);
                 } else {
                     if (isPlaceholder(newHandle)) {
-                        LOG.debug(
-                                "advance last using checkpoint to {} by placeholder, key:{}, stateHandle:{}",
+                        LOG.trace(
+                                "Duplicated registration under key {} and stateHandle {} with a placeholder (normal case)",
                                 registrationKey,
-                                entry,
-                                checkpointID);
-
-                        entry.advanceLastUsingCheckpointID(checkpointID);
+                                entry.stateHandle);
                     } else {
                         SharedStateEntry added = new SharedStateEntry(newHandle, checkpointID);
                         entry.next = added;
                         entry = entry.next;
 
-                        LOG.debug("register new state: [{}:{}]", registrationKey, entry);
+                        LOG.trace(
+                                "Registered another new shared state {} under key {}.",
+                                newHandle,
+                                registrationKey);
+
+                        // no further handling
+                        return entry.stateHandle;
                     }
                 }
+
+                LOG.trace(
+                        "Updating last checkpoint for key {} and entry {} to {}",
+                        registrationKey,
+                        entry,
+                        checkpointID);
+                entry.advanceLastUsingCheckpointID(checkpointID);
 
                 if (preventDiscardingCreatedCheckpoint) {
                     entry.preventDiscardingCreatedCheckpoint();
