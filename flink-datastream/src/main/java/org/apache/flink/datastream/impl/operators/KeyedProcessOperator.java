@@ -44,6 +44,12 @@ public class KeyedProcessOperator<KEY, IN, OUT> extends ProcessOperator<IN, OUT>
     }
 
     @Override
+    public boolean isAsyncStateProcessingEnabled() {
+        // For keyed operator, the async state processing should be enabled.
+        return true;
+    }
+
+    @Override
     protected TimestampCollector<OUT> getOutputCollector() {
         return outKeySelector != null
                 ? new KeyCheckedOutputCollector<>(
