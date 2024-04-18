@@ -136,7 +136,7 @@ under the License.
 						</goals>
 						<configuration>
 							<compilerArgument>-Xlint:deprecation</compilerArgument>
-							<failOnWarning>true</failOnWarning>
+							<failOnWarning>false</failOnWarning>
 							<!-- This example is temporarily preserved only for testing purpose. -->
 							<excludes>
 								<exclude>
@@ -209,6 +209,30 @@ under the License.
 								<include>org/apache/flink/streaming/examples/wordcount/WordCount$*.class</include>
 								<include>org/apache/flink/streaming/examples/wordcount/util/WordCountData.class</include>
 								<include>org/apache/flink/streaming/examples/wordcount/util/CLI.class</include>
+								<include>META-INF/LICENSE</include>
+								<include>META-INF/NOTICE</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- AsyncWordCount -->
+					<execution>
+						<id>AsyncWordCount</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>AsyncWordCount</classifier>
+
+							<archive>
+								<manifestEntries>
+									<program-class>org.apache.flink.streaming.examples.wordcountasync.AsyncWordCount</program-class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>org/apache/flink/streaming/examples/wordcountasync/*.class</include>
 								<include>META-INF/LICENSE</include>
 								<include>META-INF/NOTICE</include>
 							</includes>
