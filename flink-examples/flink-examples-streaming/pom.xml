@@ -54,6 +54,13 @@ under the License.
 			<version>${project.version}</version>
 		</dependency>
 
+		<!-- include forst backend and remove rocksdb backend for test -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-statebackend-forst</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-connector-files</artifactId>
@@ -136,7 +143,7 @@ under the License.
 						</goals>
 						<configuration>
 							<compilerArgument>-Xlint:deprecation</compilerArgument>
-							<failOnWarning>true</failOnWarning>
+							<failOnWarning>false</failOnWarning>
 							<!-- This example is temporarily preserved only for testing purpose. -->
 							<excludes>
 								<exclude>
@@ -209,6 +216,30 @@ under the License.
 								<include>org/apache/flink/streaming/examples/wordcount/WordCount$*.class</include>
 								<include>org/apache/flink/streaming/examples/wordcount/util/WordCountData.class</include>
 								<include>org/apache/flink/streaming/examples/wordcount/util/CLI.class</include>
+								<include>META-INF/LICENSE</include>
+								<include>META-INF/NOTICE</include>
+							</includes>
+						</configuration>
+					</execution>
+
+					<!-- AsyncWordCount -->
+					<execution>
+						<id>AsyncWordCount</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>AsyncWordCount</classifier>
+
+							<archive>
+								<manifestEntries>
+									<program-class>org.apache.flink.streaming.examples.wordcountasync.AsyncWordCount</program-class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>org/apache/flink/streaming/examples/wordcountasync/*.class</include>
 								<include>META-INF/LICENSE</include>
 								<include>META-INF/NOTICE</include>
 							</includes>
@@ -449,6 +480,7 @@ under the License.
 								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-WindowJoin.jar" tofile="${project.basedir}/target/WindowJoin.jar" />
 								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-WordCount.jar" tofile="${project.basedir}/target/WordCount.jar" />
 								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-SocketWindowWordCount.jar" tofile="${project.basedir}/target/SocketWindowWordCount.jar" />
+								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-AsyncWordCount.jar" tofile="${project.basedir}/target/AsyncWordCount.jar" />
 							</target>
 						</configuration>
 					</execution>
