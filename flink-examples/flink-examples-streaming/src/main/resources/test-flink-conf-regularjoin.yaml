@@ -1,0 +1,77 @@
+env.java.opts.all: --add-exports=java.base/sun.net.util=ALL-UNNAMED --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.text=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+
+jobmanager.rpc.address: master
+jobmanager.rpc.port: 6123
+jobmanager.bind-host: 0.0.0.0
+jobmanager.memory.process.size: 1600m
+jobmanager.execution.failover-strategy: region
+
+taskmanager.bind-host: 0.0.0.0
+taskmanager.memory.process.size: 2048m
+taskmanager.numberOfTaskSlots: 1
+taskmanager.memory.managed.size: 512m
+
+parallelism.default: 1
+
+io.tmp.dirs: /mnt/disk1/tmp
+
+env.log.max: 100
+
+execution.checkpointing.interval: 60000
+execution.checkpointing.tolerable-failed-checkpoints: 2147483647
+# execution.async-state.in-flight-records-limit: 3
+
+state.checkpoints.dir: ${HDFS_BASE_PATH}/checkpoints/${JOB_NAME}
+
+
+# state.backend: org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendFactory
+state.backend: org.apache.flink.state.forst.ForStStateBackendFactory
+state.backend.incremental: true
+
+state.backend.forst.remote-dir: ${HDFS_BASE_PATH}/forst-working/${JOB_NAME}
+# state.backend.forst.remote-dir: /tmp/forst-working/${JOB_NAME}
+
+
+metrics.reporter.promgateway.factory.class: org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporterFactory
+metrics.reporter.promgateway.hostUrl: http://cn-beijing-intranet.arms.aliyuncs.com/prometheus/c99866a04836f9bbb21ee7d8685c708b/1205709551970658/nt2jgg14j2/cn-beijing/api/v2
+metrics.reporter.promgateway.jobName: ${JOB_NAME}
+metrics.reporter.promgateway.randomJobNameSuffix: true
+metrics.reporter.promgateway.deleteOnShutdown: false
+metrics.reporter.promgateway.interval: 10 SECONDS
+
+
+state.backend.rocksdb.metrics.actual-delayed-write-rate: true
+state.backend.rocksdb.metrics.background-errors: true
+state.backend.rocksdb.metrics.block-cache-capacity: true
+state.backend.rocksdb.metrics.block-cache-hit: true
+state.backend.rocksdb.metrics.block-cache-miss: true
+state.backend.rocksdb.metrics.block-cache-pinned-usage: true
+state.backend.rocksdb.metrics.block-cache-usage: true
+state.backend.rocksdb.metrics.bytes-read: true
+state.backend.rocksdb.metrics.bytes-written: true
+state.backend.rocksdb.metrics.column-family-as-variable: true
+state.backend.rocksdb.metrics.compaction-pending: true
+state.backend.rocksdb.metrics.compaction-read-bytes: true
+state.backend.rocksdb.metrics.compaction-write-bytes: true
+state.backend.rocksdb.metrics.cur-size-active-mem-table: true
+state.backend.rocksdb.metrics.cur-size-all-mem-tables: true
+state.backend.rocksdb.metrics.estimate-live-data-size: true
+state.backend.rocksdb.metrics.estimate-num-keys: true
+state.backend.rocksdb.metrics.estimate-pending-compaction-bytes: true
+state.backend.rocksdb.metrics.estimate-table-readers-mem: true
+state.backend.rocksdb.metrics.is-write-stopped: true
+state.backend.rocksdb.metrics.iter-bytes-read: true
+state.backend.rocksdb.metrics.live-sst-files-size: true
+state.backend.rocksdb.metrics.mem-table-flush-pending: true
+state.backend.rocksdb.metrics.num-deletes-active-mem-table: true
+state.backend.rocksdb.metrics.num-deletes-imm-mem-tables: true
+state.backend.rocksdb.metrics.num-entries-active-mem-table: true
+state.backend.rocksdb.metrics.num-entries-imm-mem-tables: true
+state.backend.rocksdb.metrics.num-immutable-mem-table: true
+state.backend.rocksdb.metrics.num-live-versions: true
+state.backend.rocksdb.metrics.num-running-compactions: true
+state.backend.rocksdb.metrics.num-running-flushes: true
+state.backend.rocksdb.metrics.num-snapshots: true
+state.backend.rocksdb.metrics.size-all-mem-tables: true
+state.backend.rocksdb.metrics.stall-micros: true
+state.backend.rocksdb.metrics.total-sst-files-size: true

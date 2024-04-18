@@ -263,6 +263,24 @@ under the License.
 			</excludes>
 		</fileSet>
 
+		<!-- copy script files of the examples -->
+		<fileSet>
+			<directory>../flink-examples/flink-examples-streaming/src/main/resources</directory>
+			<outputDirectory/>
+			<fileMode>0755</fileMode>
+			<includes>
+				<include>submit-job-*.sh</include>
+			</includes>
+		</fileSet>
+		<fileSet>
+			<directory>../flink-examples/flink-examples-streaming/src/main/resources</directory>
+			<outputDirectory/>
+			<fileMode>0644</fileMode>
+			<includes>
+				<include>test-flink-conf-*.yaml</include>
+			</includes>
+		</fileSet>
+
 		<!-- copy jar files of the streaming examples -->
 		<fileSet>
 			<directory>../flink-examples/flink-examples-build-helper/flink-examples-streaming-state-machine/target</directory>
