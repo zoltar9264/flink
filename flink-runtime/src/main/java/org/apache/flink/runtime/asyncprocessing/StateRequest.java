@@ -64,17 +64,17 @@ public class StateRequest<K, IN, OUT> implements Serializable {
         this.context = context;
     }
 
-    StateRequestType getRequestType() {
+    public StateRequestType getRequestType() {
         return type;
     }
 
     @Nullable
-    IN getPayload() {
+    public IN getPayload() {
         return payload;
     }
 
     @Nullable
-    State getState() {
+    public State getState() {
         return state;
     }
 
@@ -82,7 +82,7 @@ public class StateRequest<K, IN, OUT> implements Serializable {
         return stateFuture;
     }
 
-    RecordContext<K> getRecordContext() {
+    public RecordContext<K> getRecordContext() {
         return context;
     }
 }
