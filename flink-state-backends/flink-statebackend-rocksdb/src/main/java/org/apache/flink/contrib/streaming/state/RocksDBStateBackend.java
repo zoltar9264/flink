@@ -25,6 +25,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.AbstractManagedMemoryStateBackend;
 import org.apache.flink.runtime.state.AbstractStateBackend;
+import org.apache.flink.runtime.state.AsyncKeyedStateBackend;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageAccess;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
@@ -305,6 +306,17 @@ public class RocksDBStateBackend extends AbstractManagedMemoryStateBackend
     public <K> AbstractKeyedStateBackend<K> createKeyedStateBackend(
             KeyedStateBackendParameters<K> parameters) throws IOException {
         return rocksDBStateBackend.createKeyedStateBackend(parameters);
+    }
+
+    @Override
+    public <K> AsyncKeyedStateBackend createAsyncKeyedStateBackend(
+            KeyedStateBackendParameters<K> parameters) throws Exception {
+        return (RocksDBKeyedStateBackend) rocksDBStateBackend.createKeyedStateBackend(parameters);
+    }
+
+    @Override
+    public boolean supportsAsyncKeyedStateBackend() {
+        return true;
     }
 
     @Override

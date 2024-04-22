@@ -17,10 +17,16 @@
 
 package org.apache.flink.contrib.streaming.state;
 
+import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.serialization.SerializerConfigImpl;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
+import org.apache.flink.api.common.state.v2.ValueState;
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
@@ -35,10 +41,13 @@ import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersMana
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
+import org.apache.flink.runtime.asyncprocessing.AsyncExecutionController;
+import org.apache.flink.runtime.asyncprocessing.StateExecutor;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.SnapshotType;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
+import org.apache.flink.runtime.state.AsyncKeyedStateBackend;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CompositeKeySerializationUtils;
 import org.apache.flink.runtime.state.HeapPriorityQueuesManager;
@@ -56,6 +65,7 @@ import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.SnapshotStrategyRunner;
 import org.apache.flink.runtime.state.StateSnapshotTransformer.StateSnapshotTransformFactory;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSnapshotRestoreWrapper;
@@ -114,9 +124,12 @@ import static org.apache.flink.util.Preconditions.checkState;
  * href="https://github.com/facebook/rocksdb/wiki/RocksJava-Basics#opening-a-database-with-column-families">
  * this document</a>.
  */
-public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
+public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
+        implements AsyncKeyedStateBackend {
 
     private static final Logger LOG = LoggerFactory.getLogger(RocksDBKeyedStateBackend.class);
+
+    private final RocksDBStateExecutor<K> stateExecutor = new RocksDBStateExecutor<>();
 
     /**
      * The name of the merge operator in RocksDB. Do not change except you know exactly what you do.
@@ -160,6 +173,35 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
                                     StateDescriptor.Type.REDUCING,
                                     (StateUpdateFactory) RocksDBReducingState::update))
                     .collect(Collectors.toMap(t -> t.f0, t -> t.f1));
+
+    @Override
+    @Experimental
+    public StateExecutor createStateExecutor() {
+        return this.stateExecutor;
+    }
+
+    private AsyncExecutionController<K> getAec() {
+        return stateExecutor.getAec();
+    }
+
+    @Override
+    @Experimental
+    public <T> ValueState<T> getState(
+            org.apache.flink.runtime.state.v2.ValueStateDescriptor<T> stateDescriptor)
+            throws Exception {
+
+        ValueStateDescriptor<T> descV1 =
+                new ValueStateDescriptor<>(
+                        stateDescriptor.getStateId(), stateDescriptor.getSerializer());
+
+        TypeInformation<VoidNamespace> nti = TypeInformation.of(new TypeHint<VoidNamespace>() {});
+
+        RocksDBValueState<K, VoidNamespace, T> valueState =
+                createOrUpdateInternalState(
+                        nti.createSerializer(new SerializerConfigImpl()), descV1);
+
+        return new RocksDBValueStateV2<>(getAec(), stateDescriptor, this, valueState);
+    }
 
     private interface StateCreateFactory {
         <K, N, SV, S extends State, IS extends S> IS createState(
