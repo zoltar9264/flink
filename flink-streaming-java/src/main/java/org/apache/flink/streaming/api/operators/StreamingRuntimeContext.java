@@ -44,6 +44,7 @@ import org.apache.flink.runtime.jobgraph.JobType;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.state.v2.KeyedStateStoreV2;
+import org.apache.flink.runtime.state.v2.StateDescriptorConversionUtil;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 import org.apache.flink.streaming.api.graph.StreamConfig;
@@ -211,6 +212,19 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
         KeyedStateStore keyedStateStore = checkPreconditionsAndGetKeyedStateStore(stateProperties);
         stateProperties.initializeSerializerUnlessSet(this::createSerializer);
         return keyedStateStore.getState(stateProperties);
+    }
+
+    @Override
+    public <T> org.apache.flink.api.common.state.v2.ValueState<T> getStateV2(
+            ValueStateDescriptor<T> stateProperties) {
+        stateProperties.initializeSerializerUnlessSet(this::createSerializer);
+        org.apache.flink.runtime.state.v2.ValueStateDescriptor<T> stateDescriptor =
+                StateDescriptorConversionUtil.convert(stateProperties);
+
+        org.apache.flink.runtime.state.v2.KeyedStateStoreV2 keyedStateStore =
+                checkPreconditionsAndGetKeyedStateStoreV2(stateDescriptor);
+
+        return keyedStateStore.getValueState(stateDescriptor);
     }
 
     @Override

@@ -18,6 +18,7 @@
 
 package org.apache.flink.api.common.functions;
 
+import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.Public;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -548,4 +549,11 @@ public interface RuntimeContext {
      */
     @PublicEvolving
     TaskInfo getTaskInfo();
+
+    @Experimental
+    default <T> org.apache.flink.api.common.state.v2.ValueState<T> getStateV2(
+            ValueStateDescriptor<T> stateProperties) {
+        throw new UnsupportedOperationException(
+                String.format("Not Support in %s yet.", this.getClass()));
+    }
 }
