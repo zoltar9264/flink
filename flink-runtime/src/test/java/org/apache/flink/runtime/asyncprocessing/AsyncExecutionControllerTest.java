@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.asyncprocessing;
 
-import org.apache.flink.api.common.state.v2.State;
+import org.apache.flink.api.common.state.v2.ValueState;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.core.state.StateFutureUtils;
@@ -28,7 +28,6 @@ import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.v2.InternalValueState;
-import org.apache.flink.runtime.state.v2.StateDescriptor;
 import org.apache.flink.runtime.state.v2.ValueStateDescriptor;
 import org.apache.flink.util.Preconditions;
 
@@ -417,7 +416,8 @@ class AsyncExecutionControllerTest {
                 }
 
                 @Override
-                public <S extends State> S getState(StateDescriptor<?> stateDescriptor) {
+                public <T> ValueState<T> getState(ValueStateDescriptor<T> stateDescriptor)
+                        throws Exception {
                     return null;
                 }
 

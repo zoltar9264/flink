@@ -214,6 +214,7 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
             ValueStateDescriptor<T> stateProperties) {
         org.apache.flink.runtime.state.v2.KeyedStateStore keyedStateStore =
                 checkPreconditionsAndGetKeyedStateStoreV2(stateProperties);
+        stateProperties.initializeSerializerUnlessSet(this::createSerializer);
         return keyedStateStore.getState(StateDescriptorConversionUtil.convert(stateProperties));
     }
 

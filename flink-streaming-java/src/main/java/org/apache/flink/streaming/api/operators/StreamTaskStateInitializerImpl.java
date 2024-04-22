@@ -450,7 +450,7 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
                         ttlTimeProvider,
                         metricGroup,
                         initializationMetrics::addDurationMetric,
-                        null,
+                        Collections.emptyList(),
                         cancelStreamRegistryForRestore,
                         managedMemoryFraction);
         return stateBackend.createAsyncKeyedStateBackend(parameters);
