@@ -129,7 +129,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
 
     private static final Logger LOG = LoggerFactory.getLogger(RocksDBKeyedStateBackend.class);
 
-    private final RocksDBStateExecutor<K> stateExecutor = new RocksDBStateExecutor<>();
+    private volatile RocksDBStateExecutor<K> stateExecutor;
 
     /**
      * The name of the merge operator in RocksDB. Do not change except you know exactly what you do.
@@ -177,11 +177,23 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
     @Override
     @Experimental
     public StateExecutor createStateExecutor() {
+        makeSureStateExecutorCreated();
         return this.stateExecutor;
     }
 
     private AsyncExecutionController<K> getAec() {
+        makeSureStateExecutorCreated();
         return stateExecutor.getAec();
+    }
+
+    private void makeSureStateExecutorCreated() {
+        if (stateExecutor == null) {
+            synchronized (this) {
+                if (stateExecutor == null) {
+                    stateExecutor = new RocksDBStateExecutor<>();
+                }
+            }
+        }
     }
 
     @Override
@@ -543,6 +555,11 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
             cleanInstanceBasePath();
         }
         IOUtils.closeQuietly(checkpointSnapshotStrategy);
+
+        if (stateExecutor != null) {
+            IOUtils.closeQuietly(stateExecutor);
+        }
+
         this.disposed = true;
     }
 
