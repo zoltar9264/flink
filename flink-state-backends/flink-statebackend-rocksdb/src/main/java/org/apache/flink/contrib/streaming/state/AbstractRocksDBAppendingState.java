@@ -58,8 +58,8 @@ abstract class AbstractRocksDBAppendingState<K, N, IN, SV, OUT>
         if (valueBytes == null) {
             return null;
         }
-        dataInputView.setBuffer(valueBytes);
-        return valueSerializer.deserialize(dataInputView);
+        dataInputView.get().setBuffer(valueBytes);
+        return valueSerializer.get().deserialize(dataInputView.get());
     }
 
     @Override

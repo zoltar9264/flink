@@ -49,10 +49,10 @@ import java.io.IOException;
 public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K, N, V>, State {
 
     /** Serializer for the namespace. */
-    TypeSerializer<N> namespaceSerializer;
+    ThreadLocal<TypeSerializer<N>> namespaceSerializer;
 
     /** Serializer for the state values. */
-    TypeSerializer<V> valueSerializer;
+    ThreadLocal<TypeSerializer<V>> valueSerializer;
 
     /** The current namespace, which the next value methods will refer to. */
     private N currentNamespace;
@@ -67,11 +67,11 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 
     protected final WriteOptions writeOptions;
 
-    protected final DataOutputSerializer dataOutputView;
+    protected final ThreadLocal<DataOutputSerializer> dataOutputView;
 
-    protected final DataInputDeserializer dataInputView;
+    protected final ThreadLocal<DataInputDeserializer> dataInputView;
 
-    private final SerializedCompositeKeyBuilder<K> sharedKeyNamespaceSerializer;
+    private final ThreadLocal<SerializedCompositeKeyBuilder<K>> sharedKeyNamespaceSerializer;
 
     /**
      * Creates a new RocksDB backed state.
@@ -89,19 +89,20 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
             V defaultValue,
             RocksDBKeyedStateBackend<K> backend) {
 
-        this.namespaceSerializer = namespaceSerializer;
+        this.namespaceSerializer = ThreadLocal.withInitial(() -> namespaceSerializer.duplicate());
         this.backend = backend;
 
         this.columnFamily = columnFamily;
 
         this.writeOptions = backend.getWriteOptions();
-        this.valueSerializer =
-                Preconditions.checkNotNull(valueSerializer, "State value serializer");
+        Preconditions.checkNotNull(valueSerializer, "State value serializer");
+        this.valueSerializer = ThreadLocal.withInitial(() -> valueSerializer.duplicate());
         this.defaultValue = defaultValue;
 
-        this.dataOutputView = new DataOutputSerializer(128);
-        this.dataInputView = new DataInputDeserializer();
-        this.sharedKeyNamespaceSerializer = backend.getSharedRocksKeyBuilder();
+        this.dataOutputView = ThreadLocal.withInitial(() -> new DataOutputSerializer(128));
+
+        this.dataInputView = ThreadLocal.withInitial(DataInputDeserializer::new);
+        this.sharedKeyNamespaceSerializer = backend.getSharedRocksKeyBuilderLocal();
     }
 
     // ------------------------------------------------------------------------
@@ -143,40 +144,45 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
                 new SerializedCompositeKeyBuilder<>(
                         safeKeySerializer, backend.getKeyGroupPrefixBytes(), 32);
         keyBuilder.setKeyAndKeyGroup(keyAndNamespace.f0, keyGroup);
-        byte[] key = keyBuilder.buildCompositeKeyNamespace(keyAndNamespace.f1, namespaceSerializer);
+        byte[] key =
+                keyBuilder.buildCompositeKeyNamespace(
+                        keyAndNamespace.f1, namespaceSerializer.get());
         return backend.db.get(columnFamily, key);
     }
 
     <UK> byte[] serializeCurrentKeyWithGroupAndNamespacePlusUserKey(
             UK userKey, TypeSerializer<UK> userKeySerializer) throws IOException {
-        return sharedKeyNamespaceSerializer.buildCompositeKeyNamesSpaceUserKey(
-                currentNamespace, namespaceSerializer, userKey, userKeySerializer);
+        return sharedKeyNamespaceSerializer
+                .get()
+                .buildCompositeKeyNamesSpaceUserKey(
+                        currentNamespace, namespaceSerializer.get(), userKey, userKeySerializer);
     }
 
     private <T> byte[] serializeValueInternal(T value, TypeSerializer<T> serializer)
             throws IOException {
-        serializer.serialize(value, dataOutputView);
-        return dataOutputView.getCopyOfBuffer();
+        serializer.serialize(value, dataOutputView.get());
+        return dataOutputView.get().getCopyOfBuffer();
     }
 
     byte[] serializeCurrentKeyWithGroupAndNamespace() {
-        return sharedKeyNamespaceSerializer.buildCompositeKeyNamespace(
-                currentNamespace, namespaceSerializer);
+        return sharedKeyNamespaceSerializer
+                .get()
+                .buildCompositeKeyNamespace(currentNamespace, namespaceSerializer.get());
     }
 
     byte[] serializeValue(V value) throws IOException {
-        return serializeValue(value, valueSerializer);
+        return serializeValue(value, valueSerializer.get());
     }
 
     <T> byte[] serializeValueNullSensitive(T value, TypeSerializer<T> serializer)
             throws IOException {
-        dataOutputView.clear();
-        dataOutputView.writeBoolean(value == null);
+        dataOutputView.get().clear();
+        dataOutputView.get().writeBoolean(value == null);
         return serializeValueInternal(value, serializer);
     }
 
     <T> byte[] serializeValue(T value, TypeSerializer<T> serializer) throws IOException {
-        dataOutputView.clear();
+        dataOutputView.get().clear();
         return serializeValueInternal(value, serializer);
     }
 
@@ -201,9 +207,9 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 
     byte[] getValueBytes(V value) {
         try {
-            dataOutputView.clear();
-            valueSerializer.serialize(value, dataOutputView);
-            return dataOutputView.getCopyOfBuffer();
+            dataOutputView.get().clear();
+            valueSerializer.get().serialize(value, dataOutputView.get());
+            return dataOutputView.get().getCopyOfBuffer();
         } catch (IOException e) {
             throw new FlinkRuntimeException("Error while serializing value", e);
         }
@@ -211,7 +217,7 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 
     protected V getDefaultValue() {
         if (defaultValue != null) {
-            return valueSerializer.copy(defaultValue);
+            return valueSerializer.get().copy(defaultValue);
         } else {
             return null;
         }
@@ -219,12 +225,12 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 
     protected AbstractRocksDBState<K, N, V> setNamespaceSerializer(
             TypeSerializer<N> namespaceSerializer) {
-        this.namespaceSerializer = namespaceSerializer;
+        this.namespaceSerializer.set(namespaceSerializer);
         return this;
     }
 
     protected AbstractRocksDBState<K, N, V> setValueSerializer(TypeSerializer<V> valueSerializer) {
-        this.valueSerializer = valueSerializer;
+        this.valueSerializer.set(valueSerializer);
         return this;
     }
 

@@ -76,12 +76,12 @@ class RocksDBReducingState<K, N, V> extends AbstractRocksDBAppendingState<K, N, 
 
     @Override
     public TypeSerializer<N> getNamespaceSerializer() {
-        return namespaceSerializer;
+        return namespaceSerializer.get();
     }
 
     @Override
     public TypeSerializer<V> getValueSerializer() {
-        return valueSerializer;
+        return valueSerializer.get();
     }
 
     @Override
@@ -114,8 +114,8 @@ class RocksDBReducingState<K, N, V> extends AbstractRocksDBAppendingState<K, N, 
 
                 if (valueBytes != null) {
                     backend.db.delete(columnFamily, writeOptions, sourceKey);
-                    dataInputView.setBuffer(valueBytes);
-                    V value = valueSerializer.deserialize(dataInputView);
+                    dataInputView.get().setBuffer(valueBytes);
+                    V value = valueSerializer.get().deserialize(dataInputView.get());
 
                     if (current != null) {
                         current = reduceFunction.reduce(current, value);
@@ -134,19 +134,20 @@ class RocksDBReducingState<K, N, V> extends AbstractRocksDBAppendingState<K, N, 
             final byte[] targetValueBytes = backend.db.get(columnFamily, targetKey);
 
             if (targetValueBytes != null) {
-                dataInputView.setBuffer(targetValueBytes);
+                dataInputView.get().setBuffer(targetValueBytes);
                 // target also had a value, merge
-                V value = valueSerializer.deserialize(dataInputView);
+                V value = valueSerializer.get().deserialize(dataInputView.get());
 
                 current = reduceFunction.reduce(current, value);
             }
 
             // serialize the resulting value
-            dataOutputView.clear();
-            valueSerializer.serialize(current, dataOutputView);
+            dataOutputView.get().clear();
+            valueSerializer.get().serialize(current, dataOutputView.get());
 
             // write the resulting value
-            backend.db.put(columnFamily, writeOptions, targetKey, dataOutputView.getCopyOfBuffer());
+            backend.db.put(
+                    columnFamily, writeOptions, targetKey, dataOutputView.get().getCopyOfBuffer());
         }
     }
 

@@ -96,8 +96,11 @@ public abstract class AbstractKeyedStateBackend<K>
     /** Decorates the input and output streams to write key-groups compressed. */
     protected final StreamCompressionDecorator keyGroupCompressionDecorator;
 
-    /** The key context for this backend. */
-    protected final InternalKeyContext<K> keyContext;
+    /**
+     * The key context for this backend. Make keyContext thread-local for supporting run state
+     * access in multi-thread.
+     */
+    protected final ThreadLocal<InternalKeyContext<K>> keyContext;
 
     public AbstractKeyedStateBackend(
             TaskKvStateRegistry kvStateRegistry,
@@ -159,7 +162,7 @@ public abstract class AbstractKeyedStateBackend<K>
                 abstractKeyedStateBackend.latencyTrackingStateConfig,
                 abstractKeyedStateBackend.cancelStreamRegistry,
                 abstractKeyedStateBackend.keyGroupCompressionDecorator,
-                abstractKeyedStateBackend.keyContext,
+                abstractKeyedStateBackend.keyContext.get(),
                 abstractKeyedStateBackend.numberOfKeyGroups,
                 abstractKeyedStateBackend.keyGroupRange,
                 abstractKeyedStateBackend.keyValueStatesByName,
@@ -185,7 +188,13 @@ public abstract class AbstractKeyedStateBackend<K>
             ArrayList<KeySelectionListener<K>> keySelectionListeners,
             InternalKvState lastState,
             String lastName) {
-        this.keyContext = Preconditions.checkNotNull(keyContext);
+        Preconditions.checkNotNull(keyContext);
+        this.keyContext =
+                ThreadLocal.withInitial(
+                        () ->
+                                new InternalKeyContextImpl<>(
+                                        keyContext.getKeyGroupRange(),
+                                        keyContext.getNumberOfKeyGroups()));
         this.numberOfKeyGroups = numberOfKeyGroups;
         this.keyGroupRange = Preconditions.checkNotNull(keyGroupRange);
         Preconditions.checkArgument(
@@ -245,9 +254,11 @@ public abstract class AbstractKeyedStateBackend<K>
     @Override
     public void setCurrentKey(K newKey) {
         notifyKeySelected(newKey);
-        this.keyContext.setCurrentKey(newKey);
-        this.keyContext.setCurrentKeyGroupIndex(
-                KeyGroupRangeAssignment.assignToKeyGroup(newKey, numberOfKeyGroups));
+        this.keyContext.get().setCurrentKey(newKey);
+        this.keyContext
+                .get()
+                .setCurrentKeyGroupIndex(
+                        KeyGroupRangeAssignment.assignToKeyGroup(newKey, numberOfKeyGroups));
     }
 
     private void notifyKeySelected(K newKey) {
@@ -276,12 +287,12 @@ public abstract class AbstractKeyedStateBackend<K>
     /** @see KeyedStateBackend */
     @Override
     public K getCurrentKey() {
-        return this.keyContext.getCurrentKey();
+        return this.keyContext.get().getCurrentKey();
     }
 
     /** @see KeyedStateBackend */
     public int getCurrentKeyGroupIndex() {
-        return this.keyContext.getCurrentKeyGroupIndex();
+        return this.keyContext.get().getCurrentKeyGroupIndex();
     }
 
     /** @see KeyedStateBackend */
@@ -444,7 +455,7 @@ public abstract class AbstractKeyedStateBackend<K>
     }
 
     public InternalKeyContext<K> getKeyContext() {
-        return keyContext;
+        return keyContext.get();
     }
 
     public interface PartitionStateFactory {
@@ -457,6 +468,6 @@ public abstract class AbstractKeyedStateBackend<K>
 
     @Override
     public void setCurrentKeyGroupIndex(int currentKeyGroupIndex) {
-        keyContext.setCurrentKeyGroupIndex(currentKeyGroupIndex);
+        keyContext.get().setCurrentKeyGroupIndex(currentKeyGroupIndex);
     }
 }

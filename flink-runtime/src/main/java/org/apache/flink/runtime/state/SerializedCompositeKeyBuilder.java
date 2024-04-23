@@ -57,6 +57,14 @@ public final class SerializedCompositeKeyBuilder<K> {
 
     @Nonnegative private int afterNamespaceMark;
 
+    /** Copy constructor. */
+    public SerializedCompositeKeyBuilder(SerializedCompositeKeyBuilder another) {
+        this(
+                another.keySerializer,
+                another.keyGroupPrefixBytes,
+                another.keyOutView.getSharedBuffer().length);
+    }
+
     public SerializedCompositeKeyBuilder(
             @Nonnull TypeSerializer<K> keySerializer,
             @Nonnegative int keyGroupPrefixBytes,
@@ -76,7 +84,7 @@ public final class SerializedCompositeKeyBuilder<K> {
             @Nonnegative int keyGroupPrefixBytes,
             boolean keySerializerTypeVariableSized,
             @Nonnegative int afterKeyMark) {
-        this.keySerializer = keySerializer;
+        this.keySerializer = keySerializer.duplicate();
         this.keyOutView = keyOutView;
         this.keyGroupPrefixBytes = keyGroupPrefixBytes;
         this.keySerializerTypeVariableSized = keySerializerTypeVariableSized;
