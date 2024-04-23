@@ -273,7 +273,8 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
                             ? newMetaInfo.withSerializerUpgradesAllowed()
                             : newMetaInfo;
 
-            stateTable = stateTableFactory.newStateTable(keyContext, newMetaInfo, keySerializer);
+            stateTable =
+                    stateTableFactory.newStateTable(keyContext.get(), newMetaInfo, keySerializer);
             registeredKVStates.put(stateDesc.getName(), stateTable);
         }
 

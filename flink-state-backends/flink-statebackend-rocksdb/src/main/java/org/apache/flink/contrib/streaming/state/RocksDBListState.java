@@ -99,12 +99,12 @@ class RocksDBListState<K, N, V> extends AbstractRocksDBState<K, N, List<V>>
 
     @Override
     public TypeSerializer<N> getNamespaceSerializer() {
-        return namespaceSerializer;
+        return namespaceSerializer.get();
     }
 
     @Override
     public TypeSerializer<List<V>> getValueSerializer() {
-        return valueSerializer;
+        return valueSerializer.get();
     }
 
     @Override

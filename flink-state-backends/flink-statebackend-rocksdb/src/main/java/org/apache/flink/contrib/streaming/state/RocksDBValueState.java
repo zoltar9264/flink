@@ -67,12 +67,12 @@ class RocksDBValueState<K, N, V> extends AbstractRocksDBState<K, N, V>
 
     @Override
     public TypeSerializer<N> getNamespaceSerializer() {
-        return namespaceSerializer;
+        return namespaceSerializer.get();
     }
 
     @Override
     public TypeSerializer<V> getValueSerializer() {
-        return valueSerializer;
+        return valueSerializer.get();
     }
 
     @Override
@@ -84,8 +84,8 @@ class RocksDBValueState<K, N, V> extends AbstractRocksDBState<K, N, V>
             if (valueBytes == null) {
                 return getDefaultValue();
             }
-            dataInputView.setBuffer(valueBytes);
-            return valueSerializer.deserialize(dataInputView);
+            dataInputView.get().setBuffer(valueBytes);
+            return valueSerializer.get().deserialize(dataInputView.get());
         } catch (RocksDBException e) {
             throw new IOException("Error while retrieving data from RocksDB.", e);
         }

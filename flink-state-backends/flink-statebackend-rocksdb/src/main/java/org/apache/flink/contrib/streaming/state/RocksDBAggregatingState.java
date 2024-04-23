@@ -79,12 +79,12 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 
     @Override
     public TypeSerializer<N> getNamespaceSerializer() {
-        return namespaceSerializer;
+        return namespaceSerializer.get();
     }
 
     @Override
     public TypeSerializer<ACC> getValueSerializer() {
-        return valueSerializer;
+        return valueSerializer.get();
     }
 
     @Override
@@ -122,8 +122,8 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 
                 if (valueBytes != null) {
                     backend.db.delete(columnFamily, writeOptions, sourceKey);
-                    dataInputView.setBuffer(valueBytes);
-                    ACC value = valueSerializer.deserialize(dataInputView);
+                    dataInputView.get().setBuffer(valueBytes);
+                    ACC value = valueSerializer.get().deserialize(dataInputView.get());
 
                     if (current != null) {
                         current = aggFunction.merge(current, value);
@@ -143,18 +143,19 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 
             if (targetValueBytes != null) {
                 // target also had a value, merge
-                dataInputView.setBuffer(targetValueBytes);
-                ACC value = valueSerializer.deserialize(dataInputView);
+                dataInputView.get().setBuffer(targetValueBytes);
+                ACC value = valueSerializer.get().deserialize(dataInputView.get());
 
                 current = aggFunction.merge(current, value);
             }
 
             // serialize the resulting value
-            dataOutputView.clear();
-            valueSerializer.serialize(current, dataOutputView);
+            dataOutputView.get().clear();
+            valueSerializer.get().serialize(current, dataOutputView.get());
 
             // write the resulting value
-            backend.db.put(columnFamily, writeOptions, targetKey, dataOutputView.getCopyOfBuffer());
+            backend.db.put(
+                    columnFamily, writeOptions, targetKey, dataOutputView.get().getCopyOfBuffer());
         }
     }
 

@@ -288,9 +288,9 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
 
     /**
      * Helper to build the byte arrays of composite keys to address data in RocksDB. Shared across
-     * all states.
+     * all states. Make this thread-local for supporting run state access in multi-thread.
      */
-    private final SerializedCompositeKeyBuilder<K> sharedRocksKeyBuilder;
+    private final ThreadLocal<SerializedCompositeKeyBuilder<K>> sharedRocksKeyBuilder;
 
     /**
      * Our RocksDB database, this is used by the actual subclasses of {@link AbstractRocksDBState}
@@ -367,7 +367,9 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
         this.writeBatchWrapper = writeBatchWrapper;
         this.defaultColumnFamily = defaultColumnFamilyHandle;
         this.nativeMetricMonitor = nativeMetricMonitor;
-        this.sharedRocksKeyBuilder = sharedRocksKeyBuilder;
+        this.sharedRocksKeyBuilder =
+                ThreadLocal.withInitial(
+                        () -> new SerializedCompositeKeyBuilder<>(sharedRocksKeyBuilder));
         this.priorityQueueFactory = priorityQueueFactory;
         this.asyncCompactAfterRestoreFuture = asyncCompactFuture;
         if (priorityQueueFactory instanceof HeapPriorityQueueSetFactory) {
@@ -477,7 +479,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
     @Override
     public void setCurrentKey(K newKey) {
         super.setCurrentKey(newKey);
-        sharedRocksKeyBuilder.setKeyAndKeyGroup(getCurrentKey(), getCurrentKeyGroupIndex());
+        sharedRocksKeyBuilder.get().setKeyAndKeyGroup(getCurrentKey(), getCurrentKeyGroupIndex());
     }
 
     /** Should only be called by one thread, and only after all accesses to the DB happened. */
@@ -602,6 +604,10 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K>
     }
 
     SerializedCompositeKeyBuilder<K> getSharedRocksKeyBuilder() {
+        return sharedRocksKeyBuilder.get();
+    }
+
+    ThreadLocal<SerializedCompositeKeyBuilder<K>> getSharedRocksKeyBuilderLocal() {
         return sharedRocksKeyBuilder;
     }
 

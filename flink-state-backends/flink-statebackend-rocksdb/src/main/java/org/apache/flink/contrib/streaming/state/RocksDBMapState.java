@@ -106,12 +106,12 @@ class RocksDBMapState<K, N, UK, UV> extends AbstractRocksDBState<K, N, Map<UK, U
 
     @Override
     public TypeSerializer<N> getNamespaceSerializer() {
-        return namespaceSerializer;
+        return namespaceSerializer.get();
     }
 
     @Override
     public TypeSerializer<Map<UK, UV>> getValueSerializer() {
-        return valueSerializer;
+        return valueSerializer.get();
     }
 
     // ------------------------------------------------------------------------
@@ -126,7 +126,7 @@ class RocksDBMapState<K, N, UK, UV> extends AbstractRocksDBState<K, N, Map<UK, U
 
         return (rawValueBytes == null
                 ? null
-                : deserializeUserValue(dataInputView, rawValueBytes, userValueSerializer));
+                : deserializeUserValue(dataInputView.get(), rawValueBytes, userValueSerializer));
     }
 
     @Override
@@ -191,7 +191,7 @@ class RocksDBMapState<K, N, UK, UV> extends AbstractRocksDBState<K, N, Map<UK, U
                         prefixBytes,
                         userKeySerializer,
                         userValueSerializer,
-                        dataInputView) {
+                        dataInputView.get()) {
                     @Nullable
                     @Override
                     public UK next() {
@@ -211,7 +211,7 @@ class RocksDBMapState<K, N, UK, UV> extends AbstractRocksDBState<K, N, Map<UK, U
                         prefixBytes,
                         userKeySerializer,
                         userValueSerializer,
-                        dataInputView) {
+                        dataInputView.get()) {
                     @Override
                     public UV next() {
                         RocksDBMapEntry entry = nextEntry();
@@ -255,7 +255,11 @@ class RocksDBMapState<K, N, UK, UV> extends AbstractRocksDBState<K, N, Map<UK, U
         final byte[] prefixBytes = serializeCurrentKeyWithGroupAndNamespace();
 
         return new RocksDBMapIterator<Map.Entry<UK, UV>>(
-                backend.db, prefixBytes, userKeySerializer, userValueSerializer, dataInputView) {
+                backend.db,
+                prefixBytes,
+                userKeySerializer,
+                userValueSerializer,
+                dataInputView.get()) {
             @Override
             public Map.Entry<UK, UV> next() {
                 return nextEntry();
@@ -345,7 +349,8 @@ class RocksDBMapState<K, N, UK, UV> extends AbstractRocksDBState<K, N, Map<UK, U
         keyBuilder.setKeyAndKeyGroup(keyAndNamespace.f0, keyGroup);
 
         final byte[] keyPrefixBytes =
-                keyBuilder.buildCompositeKeyNamespace(keyAndNamespace.f1, namespaceSerializer);
+                keyBuilder.buildCompositeKeyNamespace(
+                        keyAndNamespace.f1, namespaceSerializer.get());
 
         final MapSerializer<UK, UV> serializer = (MapSerializer<UK, UV>) safeValueSerializer;
 
