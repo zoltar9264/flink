@@ -28,12 +28,32 @@ import org.apache.flink.runtime.asyncprocessing.StateRequest;
 import org.apache.flink.runtime.asyncprocessing.StateRequestType;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.apache.flink.shaded.guava31.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class RocksDBStateExecutor<K> extends AbstractStateExecutor {
+public class RocksDBStateExecutor<K> extends AbstractStateExecutor implements AutoCloseable {
+
+    private static final AtomicInteger executorCounter = new AtomicInteger(0);
+
+    private final ExecutorService executor;
 
     private boolean aecBound = false;
+
+    public RocksDBStateExecutor() {
+        int executorIndex = executorCounter.incrementAndGet();
+        executor =
+                Executors.newFixedThreadPool(
+                        32,
+                        new ThreadFactoryBuilder()
+                                .setNameFormat(
+                                        "RocksDBStateExecutor-" + executorIndex + "-thread-%d")
+                                .build());
+    }
 
     @Override
     public void bindAsyncExecutionController(AsyncExecutionController<?> asyncExecutionController) {
@@ -58,7 +78,7 @@ public class RocksDBStateExecutor<K> extends AbstractStateExecutor {
             Iterable<StateRequest<?, ?, ?>> processingRequests) {
         for (StateRequest<?, ?, ?> request : processingRequests) {
             // execute state request one by one
-            processRequest((StateRequest<K, ?, ?>) request);
+            executor.execute(() -> processRequest((StateRequest<K, ?, ?>) request));
         }
 
         return CompletableFuture.completedFuture(Boolean.TRUE);
@@ -125,6 +145,13 @@ public class RocksDBStateExecutor<K> extends AbstractStateExecutor {
             stateFuture.complete(null);
         } catch (IOException e) {
             throw new FlinkRuntimeException("process value state process failed :", e);
+        }
+    }
+
+    @Override
+    public void close() throws Exception {
+        if (executor != null) {
+            executor.shutdown();
         }
     }
 }
