@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.asyncprocessing;
 
+import javax.annotation.Nullable;
+
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -29,7 +31,7 @@ import java.util.function.Consumer;
  *
  * @param <K> The type of the key inside the record.
  */
-public class RecordContext<K> extends ReferenceCounted {
+public class RecordContext<K> extends ReferenceCounted<RecordContext.DisposerRunner> {
 
     /** The record to be processed. */
     private final Object record;
@@ -74,10 +76,14 @@ public class RecordContext<K> extends ReferenceCounted {
     }
 
     @Override
-    protected void referenceCountReachedZero() {
+    protected void referenceCountReachedZero(@Nullable DisposerRunner disposerRunner) {
         if (keyOccupied) {
             keyOccupied = false;
-            disposer.accept(this);
+            if (disposerRunner != null) {
+                disposerRunner.runDisposer(() -> disposer.accept(this));
+            } else {
+                disposer.accept(this);
+            }
         }
     }
 
@@ -113,5 +119,9 @@ public class RecordContext<K> extends ReferenceCounted {
                 + ", ref="
                 + getReferenceCount()
                 + "}";
+    }
+
+    public interface DisposerRunner {
+        void runDisposer(Runnable task);
     }
 }
