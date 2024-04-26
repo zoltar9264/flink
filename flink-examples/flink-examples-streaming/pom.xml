@@ -239,6 +239,30 @@ under the License.
 						</configuration>
 					</execution>
 
+					<!-- RegularJoinJob -->
+					<execution>
+						<id>RegularJoinJob</id>
+						<phase>package</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+						<configuration>
+							<classifier>RegularJoinJob</classifier>
+
+							<archive>
+								<manifestEntries>
+									<program-class>org.apache.flink.streaming.examples.regularjoin.RegularJoinJob</program-class>
+								</manifestEntries>
+							</archive>
+
+							<includes>
+								<include>org/apache/flink/streaming/examples/regularjoin/*.class</include>
+								<include>META-INF/LICENSE</include>
+								<include>META-INF/NOTICE</include>
+							</includes>
+						</configuration>
+					</execution>
+
 					<!-- SocketWindowWordCount -->
 					<execution>
 						<id>SocketWindowWordCount</id>
@@ -473,6 +497,7 @@ under the License.
 								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-WindowJoin.jar" tofile="${project.basedir}/target/WindowJoin.jar" />
 								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-WordCount.jar" tofile="${project.basedir}/target/WordCount.jar" />
 								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-SocketWindowWordCount.jar" tofile="${project.basedir}/target/SocketWindowWordCount.jar" />
+								<copy file="${project.basedir}/target/flink-examples-streaming-${project.version}-RegularJoinJob.jar" tofile="${project.basedir}/target/RegularJoinJob.jar" />
 							</target>
 						</configuration>
 					</execution>
