@@ -30,7 +30,7 @@ function _submitJob(){
 }
 
 function submitJob01(){
-    jobName=test-join-sync-random
+    jobName=test-join-sync-random-rsk
     export JOB_NAME=$jobName
 
     joinImpl=SYNC_SIMPLE_JOIN
@@ -40,7 +40,7 @@ function submitJob01(){
 }
 
 function submitJob02(){
-    jobName=test-join-async-random
+    jobName=test-join-async-random-rsk
     export JOB_NAME=$jobName
 
     joinImpl=ASYNC_SIMPLE_JOIN
@@ -50,7 +50,7 @@ function submitJob02(){
 }
 
 function submitJob03(){
-    jobName=test-join-sync-gaussian_0.2
+    jobName=test-join-sync-gaussian_0.2-rsk
     export JOB_NAME=$jobName
 
     joinImpl=SYNC_SIMPLE_JOIN
@@ -61,7 +61,7 @@ function submitJob03(){
 }
 
 function submitJob04(){
-    jobName=test-join-async-gaussian_0.2
+    jobName=test-join-async-gaussian_0.2-rsk
     export JOB_NAME=$jobName
 
     joinImpl=ASYNC_SIMPLE_JOIN
@@ -72,7 +72,7 @@ function submitJob04(){
 }
 
 function submitJob05(){
-    jobName=test-join-sync-gaussian_0.05
+    jobName=test-join-sync-gaussian_0.05-rsk
     export JOB_NAME=$jobName
 
     joinImpl=SYNC_SIMPLE_JOIN
@@ -83,7 +83,7 @@ function submitJob05(){
 }
 
 function submitJob06(){
-    jobName=test-join-async-gaussian_0.05
+    jobName=test-join-async-gaussian_0.05-rsk
     export JOB_NAME=$jobName
 
     joinImpl=ASYNC_SIMPLE_JOIN
