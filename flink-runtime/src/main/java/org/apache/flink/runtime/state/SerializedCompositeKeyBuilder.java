@@ -194,10 +194,12 @@ public final class SerializedCompositeKeyBuilder<K> {
         // clear buffer and mark
         resetFully();
 
-        // write key-group
-        CompositeKeySerializationUtils.writeKeyGroup(keyGroupId, keyGroupPrefixBytes, keyOutView);
+        // make key before key-group
         // write key
         keySerializer.serialize(key, keyOutView);
+        // write key-group
+        CompositeKeySerializationUtils.writeKeyGroup(keyGroupId, keyGroupPrefixBytes, keyOutView);
+
         afterKeyMark = keyOutView.length();
     }
 
