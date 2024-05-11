@@ -28,27 +28,13 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.contrib.streaming.state.DefaultConfigurableOptionsFactory;
-import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
-import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.filesystem.FsStateBackend;
-import org.apache.flink.runtime.state.memory.MemoryStateBackend;
-import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 
-import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompressionType;
-import org.rocksdb.DBOptions;
-import org.rocksdb.Statistics;
-import org.rocksdb.StatsLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.Collection;
 
 /** Regular join example job. */
 public class RegularJoinJob {
@@ -131,16 +117,12 @@ public class RegularJoinJob {
         env.getConfig().setGlobalJobParameters(configuration);
         env.disableOperatorChaining();
 
-        configureCheckpoint(env, configuration);
-
         String group1 = "default1";
         String group2 = "default2";
         String group3 = "default3";
         if (configuration.get(SHARING_GROUP)) {
             group1 = group2 = group3 = "default";
         }
-
-        setStateBackend(env, configuration);
 
         int flatMapParallelism = configuration.get(FLAT_MAP_PARALLELISM);
 
@@ -225,76 +207,5 @@ public class RegularJoinJob {
         SYNC_SIMPLE_JOIN,
         ASYNC_SIMPLE_JOIN,
         ;
-    }
-
-    private static void configureCheckpoint(
-            StreamExecutionEnvironment env, Configuration configuration) {
-        if (configuration.get(CHECKPOINT_INTERVAL) == null) {
-            return;
-        }
-
-        env.enableCheckpointing(
-                configuration.getLong(CHECKPOINT_INTERVAL), CheckpointingMode.EXACTLY_ONCE);
-        env.getCheckpointConfig()
-                .enableExternalizedCheckpoints(
-                        CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
-    }
-
-    private static void setStateBackend(
-            StreamExecutionEnvironment env, final Configuration configuration) throws IOException {
-
-        if (configuration.get(STATE_BACKEND) == null) {
-            return;
-        }
-
-        StateBackendType stateBackendType =
-                StateBackendType.valueOf(configuration.get(STATE_BACKEND).toUpperCase());
-
-        String checkpointPath = configuration.get(CHECKPOINT_PATH);
-        StateBackend stateBackend;
-        switch (stateBackendType) {
-            case FS:
-                stateBackend = new FsStateBackend(checkpointPath);
-                break;
-            case ROCKSDB:
-                RocksDBStateBackend rocksdbStateBackend = new RocksDBStateBackend(checkpointPath);
-                rocksdbStateBackend.setRocksDBOptions(
-                        new DefaultConfigurableOptionsFactory() {
-                            @Override
-                            public DBOptions createDBOptions(
-                                    DBOptions dbOptions, Collection<AutoCloseable> handlesToClose) {
-                                super.createDBOptions(dbOptions, handlesToClose);
-
-                                if (configuration.get(ROCKSDB_STATS)) {
-                                    Statistics statistics = new Statistics();
-                                    statistics.setStatsLevel(StatsLevel.EXCEPT_DETAILED_TIMERS);
-                                    dbOptions.setStatistics(statistics);
-                                }
-                                dbOptions.setStatsDumpPeriodSec(300);
-                                dbOptions.setAllowConcurrentMemtableWrite(false);
-                                return dbOptions;
-                            }
-
-                            @Override
-                            public ColumnFamilyOptions createColumnOptions(
-                                    ColumnFamilyOptions currentOptions,
-                                    Collection<AutoCloseable> handlesToClose) {
-                                super.createColumnOptions(currentOptions, handlesToClose);
-
-                                CompressionType compressionType =
-                                        CompressionType.valueOf(
-                                                configuration.get(ROCKSDB_COMPRESS).toUpperCase());
-                                currentOptions.setCompressionType(compressionType);
-                                return currentOptions;
-                            }
-                        });
-                stateBackend = rocksdbStateBackend;
-                break;
-            case MEMORY:
-            default:
-                stateBackend = new MemoryStateBackend();
-        }
-
-        env.setStateBackend(stateBackend);
     }
 }
