@@ -93,7 +93,7 @@ public class AsyncExecutionController<K> implements StateRequestHandler {
     private final StateExecutor stateExecutor;
 
     /** The corresponding context that currently runs in task thread. */
-    RecordContext<K> currentContext;
+    volatile RecordContext<K> currentContext;
 
     /** The buffer to store the state requests to execute in batch. */
     StateRequestBuffer<K> stateRequestsBuffer;

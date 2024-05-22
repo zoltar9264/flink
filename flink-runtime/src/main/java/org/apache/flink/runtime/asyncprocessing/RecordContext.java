@@ -20,9 +20,14 @@ package org.apache.flink.runtime.asyncprocessing;
 
 import org.apache.flink.runtime.asyncprocessing.EpochManager.Epoch;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
@@ -34,6 +39,8 @@ import java.util.function.Consumer;
  * @param <K> The type of the key inside the record.
  */
 public class RecordContext<K> extends ReferenceCounted<RecordContext.DisposerRunner> {
+    private static final Logger LOG = LoggerFactory.getLogger(RecordContext.class);
+
     /** The empty record for timer and non-record input usage. */
     static final Object EMPTY_RECORD = new Object();
 
@@ -66,6 +73,12 @@ public class RecordContext<K> extends ReferenceCounted<RecordContext.DisposerRun
     /** The epoch of this context. */
     private final Epoch epoch;
 
+    private final String id;
+
+    private final ArrayList<StackTraceElement[]> stackTraces;
+
+    private static volatile boolean printed = true;
+
     public RecordContext(
             Object record, K key, Consumer<RecordContext<K>> disposer, int keyGroup, Epoch epoch) {
         super(0);
@@ -75,6 +88,8 @@ public class RecordContext<K> extends ReferenceCounted<RecordContext.DisposerRun
         this.disposer = disposer;
         this.keyGroup = keyGroup;
         this.epoch = epoch;
+        this.id = UUID.randomUUID().toString();
+        this.stackTraces = new ArrayList<>(15);
     }
 
     public Object getRecord() {
@@ -93,6 +108,24 @@ public class RecordContext<K> extends ReferenceCounted<RecordContext.DisposerRun
     /** Set the flag that marks this context has occupied the corresponding key. */
     void setKeyOccupied() {
         keyOccupied = true;
+    }
+
+    @Override
+    public int retain() {
+        int ret = super.retain();
+        synchronized (stackTraces) {
+            stackTraces.add(Thread.currentThread().getStackTrace());
+        }
+        return ret;
+    }
+
+    @Override
+    public int release(@Nullable DisposerRunner disposerRunner) {
+        int ret = super.release(disposerRunner);
+        synchronized (stackTraces) {
+            stackTraces.add(Thread.currentThread().getStackTrace());
+        }
+        return ret;
     }
 
     @Override
@@ -167,5 +200,37 @@ public class RecordContext<K> extends ReferenceCounted<RecordContext.DisposerRun
 
     public interface DisposerRunner {
         void runDisposer(Runnable task);
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        if (getReferenceCount() > 0) {
+            LOG.error(spellInfo());
+        } else if (!printed) {
+            synchronized (RecordContext.class) {
+                if (!printed) {
+                    printed = true;
+                    LOG.info(spellInfo());
+                }
+            }
+        }
+    }
+
+    private String spellInfo() {
+        StringBuilder sb =
+                new StringBuilder("recordContext:")
+                        .append(id)
+                        .append(" finalized with refcount ")
+                        .append(getReferenceCount())
+                        .append(" :\n");
+        int i = 0;
+        for (StackTraceElement[] stackTrace : stackTraces) {
+            sb.append("recordContext stackTrace ").append(i++).append(" :\n");
+            for (StackTraceElement stackTraceElement : stackTrace) {
+                sb.append("        ").append(stackTraceElement).append("\n");
+            }
+        }
+        sb.append("recordContext:").append(id).append(" print finished.");
+        return sb.toString();
     }
 }
