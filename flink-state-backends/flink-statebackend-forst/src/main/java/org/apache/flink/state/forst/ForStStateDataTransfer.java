@@ -18,7 +18,9 @@
 package org.apache.flink.state.forst;
 
 import org.apache.flink.core.fs.CloseableRegistry;
+import org.apache.flink.core.fs.DuplicatingFileSystem;
 import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.CheckpointStateOutputStream;
@@ -27,6 +29,7 @@ import org.apache.flink.runtime.state.CheckpointedStateScope;
 import org.apache.flink.runtime.state.IncrementalKeyedStateHandle.HandleAndLocalPath;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.filesystem.FileStateHandle;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
@@ -44,6 +47,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -172,7 +176,18 @@ public class ForStStateDataTransfer implements Closeable {
             // Means transfer whole file to checkpoint storage.
             transferBytes = Long.MAX_VALUE;
 
-            // TODO: Optimizing transfer with fast duplicate
+            // Use fast duplicate if possible.
+            FileStatus fileStatus = filePath.getFileSystem().getFileStatus(filePath);
+            StreamStateHandle sourceHandle = new FileStateHandle(filePath, fileStatus.getLen());
+            if (checkpointStreamFactory.canFastDuplicate(sourceHandle, stateScope)) {
+                StreamStateHandle duplicateHandle =
+                        checkpointStreamFactory
+                                .duplicate(Collections.singletonList(sourceHandle), stateScope)
+                                .iterator()
+                                .next();
+
+                return HandleAndLocalPath.of(duplicateHandle, filePath.getName());
+            }
         }
 
         InputStream inputStream = null;
@@ -316,7 +331,29 @@ public class ForStStateDataTransfer implements Closeable {
 
         FileSystem targetFs = targetPath.getFileSystem();
 
-        // TODO: Use fast duplicate if possible.
+        // Use fast duplicate if possible.
+        if (targetFs instanceof DuplicatingFileSystem && sourceHandle instanceof FileStateHandle) {
+
+            FileStateHandle sourceFileHandle = (FileStateHandle) sourceHandle;
+            Path sourcePath = sourceFileHandle.getFilePath();
+
+            DuplicatingFileSystem targetDupFs = (DuplicatingFileSystem) targetFs;
+
+            try {
+                if (targetDupFs.canFastDuplicate(sourcePath, targetPath)) {
+                    targetDupFs.duplicate(
+                            Collections.singletonList(
+                                    DuplicatingFileSystem.CopyRequest.of(sourcePath, targetPath)));
+                    return;
+                }
+            } catch (IOException e) {
+                String msg =
+                        String.format(
+                                "try fast duplicate file:%s to %s failed, fallback to client copy.",
+                                sourcePath, targetPath);
+                LOG.error(msg, e);
+            }
+        }
 
         try {
             FSDataInputStream input = sourceHandle.openInputStream();
