@@ -26,11 +26,14 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.BackendBuildingException;
 import org.apache.flink.runtime.state.CompositeKeySerializationUtils;
 import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
+import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.SerializedCompositeKeyBuilder;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendBuilder;
 import org.apache.flink.runtime.state.StateSerializerProvider;
+import org.apache.flink.state.forst.restore.ForStIncrementalRestoreOperation;
 import org.apache.flink.state.forst.restore.ForStNoneRestoreOperation;
 import org.apache.flink.state.forst.restore.ForStRestoreOperation;
 import org.apache.flink.state.forst.restore.ForStRestoreResult;
@@ -52,6 +55,7 @@ import javax.annotation.Nonnull;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -74,6 +78,13 @@ public class ForStKeyedStateBackendBuilder<K>
 
     private static final int VALUE_SERIALIZER_BUFFER_START_SIZE = 128;
 
+    /** String that identifies the operator that owns this backend. */
+    private final String operatorIdentifier;
+
+    protected final ClassLoader userCodeClassLoader;
+
+    protected final CloseableRegistry cancelStreamRegistry;
+
     private final StateSerializerProvider<K> keySerializerProvider;
 
     private final int numberOfKeyGroups;
@@ -88,6 +99,7 @@ public class ForStKeyedStateBackendBuilder<K>
     private final ForStResourceContainer optionsContainer;
 
     private final MetricGroup metricGroup;
+    private final StateBackend.CustomInitializationMetrics customInitializationMetrics;
 
     /** True if incremental checkpointing is enabled. */
     private boolean enableIncrementalCheckpointing;
@@ -96,13 +108,19 @@ public class ForStKeyedStateBackendBuilder<K>
     private ForStNativeMetricOptions nativeMetricOptions;
 
     public ForStKeyedStateBackendBuilder(
+            String operatorIdentifier,
+            ClassLoader userCodeClassLoader,
             ForStResourceContainer optionsContainer,
             Function<String, ColumnFamilyOptions> columnFamilyOptionsFactory,
             TypeSerializer<K> keySerializer,
             int numberOfKeyGroups,
             KeyGroupRange keyGroupRange,
             MetricGroup metricGroup,
-            @Nonnull Collection<KeyedStateHandle> stateHandles) {
+            StateBackend.CustomInitializationMetrics customInitializationMetrics,
+            @Nonnull Collection<KeyedStateHandle> stateHandles,
+            CloseableRegistry cancelStreamRegistry) {
+        this.operatorIdentifier = operatorIdentifier;
+        this.userCodeClassLoader = userCodeClassLoader;
         this.optionsContainer = optionsContainer;
         this.columnFamilyOptionsFactory = Preconditions.checkNotNull(columnFamilyOptionsFactory);
         this.keySerializerProvider =
@@ -110,8 +128,10 @@ public class ForStKeyedStateBackendBuilder<K>
         this.numberOfKeyGroups = numberOfKeyGroups;
         this.keyGroupRange = keyGroupRange;
         this.metricGroup = metricGroup;
+        this.customInitializationMetrics = customInitializationMetrics;
         this.restoreStateHandles = stateHandles;
         this.nativeMetricOptions = new ForStNativeMetricOptions();
+        this.cancelStreamRegistry = cancelStreamRegistry;
     }
 
     ForStKeyedStateBackendBuilder<K> setEnableIncrementalCheckpointing(
@@ -164,7 +184,7 @@ public class ForStKeyedStateBackendBuilder<K>
 
         try {
             optionsContainer.prepareDirectories();
-            restoreOperation = getForStRestoreOperation();
+            restoreOperation = getForStRestoreOperation(kvStateInformation);
             ForStRestoreResult restoreResult = restoreOperation.restore();
             db = restoreResult.getDb();
             defaultColumnFamilyHandle = restoreResult.getDefaultColumnFamilyHandle();
@@ -235,7 +255,8 @@ public class ForStKeyedStateBackendBuilder<K>
                 nativeMetricMonitor);
     }
 
-    private ForStRestoreOperation getForStRestoreOperation() {
+    private ForStRestoreOperation getForStRestoreOperation(
+            LinkedHashMap<String, ForStKeyedStateBackend.ForStKvStateInfo> kvStateInformation) {
         // Currently, ForStDB does not support mixing local-dir and remote-dir, and ForStDB will
         // concatenates the dfs directory with the local directory as working dir when using flink
         // env. We expect to directly use the dfs directory in flink env or local directory as
@@ -249,11 +270,31 @@ public class ForStKeyedStateBackendBuilder<K>
 
         if (CollectionUtil.isEmptyOrAllElementsNull(restoreStateHandles)) {
             return new ForStNoneRestoreOperation(
+                    Collections.emptyMap(),
                     instanceForStPath,
                     optionsContainer.getDbOptions(),
                     columnFamilyOptionsFactory,
                     nativeMetricOptions,
                     metricGroup);
+        }
+        KeyedStateHandle firstStateHandle = restoreStateHandles.iterator().next();
+        if (firstStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
+            return new ForStIncrementalRestoreOperation<>(
+                    operatorIdentifier,
+                    keyGroupRange,
+                    cancelStreamRegistry,
+                    userCodeClassLoader,
+                    kvStateInformation,
+                    keySerializerProvider,
+                    optionsContainer.getBasePath(),
+                    instanceForStPath,
+                    optionsContainer.getDbOptions(),
+                    columnFamilyOptionsFactory,
+                    nativeMetricOptions,
+                    metricGroup,
+                    customInitializationMetrics,
+                    CollectionUtil.checkedSubTypeCast(
+                            restoreStateHandles, IncrementalRemoteKeyedStateHandle.class));
         }
         // TODO: Support Restoring
         throw new UnsupportedOperationException("Not support restoring yet for ForStStateBackend");

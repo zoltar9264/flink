@@ -20,6 +20,8 @@ package org.apache.flink.state.forst;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.memory.OpaqueMemoryResource;
+import org.apache.flink.runtime.state.RegisteredStateMetaInfoBase;
+import org.apache.flink.state.forst.ForStKeyedStateBackend.ForStKvStateInfo;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.OperatingSystem;
@@ -39,6 +41,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /** Utils for ForSt Operations. */
@@ -161,6 +164,38 @@ public class ForStOperationUtils {
         } catch (Exception e) {
             throw new IOException("Failed to acquire shared cache resource for ForSt", e);
         }
+    }
+
+    public static void registerKvStateInformation(
+            Map<String, ForStKvStateInfo> kvStateInformation,
+            ForStNativeMetricMonitor nativeMetricMonitor,
+            String columnFamilyName,
+            ForStKvStateInfo registeredColumn) {
+
+        kvStateInformation.put(columnFamilyName, registeredColumn);
+        if (nativeMetricMonitor != null) {
+            nativeMetricMonitor.registerColumnFamily(
+                    columnFamilyName, registeredColumn.columnFamilyHandle);
+        }
+    }
+
+    public static ForStKvStateInfo createStateInfo(
+            RegisteredStateMetaInfoBase metaInfoBase,
+            RocksDB db,
+            Function<String, ColumnFamilyOptions> columnFamilyOptionsFactory) {
+
+        ColumnFamilyDescriptor columnFamilyDescriptor =
+                createColumnFamilyDescriptor(metaInfoBase.getName(), columnFamilyOptionsFactory);
+
+        final ColumnFamilyHandle columnFamilyHandle;
+        try {
+            columnFamilyHandle = createColumnFamily(columnFamilyDescriptor, db);
+        } catch (Exception ex) {
+            IOUtils.closeQuietly(columnFamilyDescriptor.getOptions());
+            throw new FlinkRuntimeException("Error creating ColumnFamilyHandle.", ex);
+        }
+
+        return new ForStKvStateInfo(columnFamilyHandle, metaInfoBase);
     }
 
     private static void throwExceptionIfPathLengthExceededOnWindows(String path, Exception cause)
